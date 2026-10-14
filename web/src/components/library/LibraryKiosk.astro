@@ -11,7 +11,7 @@ const shortTitle=(value:string)=>value.split(/:\s+|\s+(?=Proven Strategies For\b
 ---
 <!doctype html>
 <html lang="en" class="theme-light">
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#f5f3ed"/><title>Your library</title></head>
+<head><meta charset="utf-8"/><meta name="library-app-version" content={process.env.LIBRARY_APP_VERSION || 'dev'}/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#f5f3ed"/><title>Your library</title></head>
 <body class="library-kiosk">
 <a href="#collection" class="skip-link">Skip to books</a>
 <header class="app-bar">
