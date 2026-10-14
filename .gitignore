@@ -1,0 +1,63 @@
+# Household catalogue, covers, generated pages and backups
+/data/
+/backups/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.sql.gz
+*.tar.gz
+*.zip
+
+# Dependencies and generated build output
+/bin/
+node_modules/
+web/dist/
+web/.astro/
+coverage/
+*.log
+
+# Credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.ssh/
+.aws/
+.codex/
+credentials.json
+service-account*.json
+secrets/
+
+# Local agent notes and development screenshots may contain household data
+/.agents/
+/design-review/
+/*.jpg
+/*.jpeg
+/*.png
+!/ER_DIAGRAM.png
+/BUILD_STATUS.md
+/CONTEXT.md
+/LINEAR_TICKETS.md
+/MORNING_HANDOVER.md
+/NIGHT_BUILD.md
+/SCAN_QA.md
+/SETTINGS_QA.md
+/DESIGN_REVIEW.md
+/DESIGN_DIRECTIONS.md
+
+# Editor and macOS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

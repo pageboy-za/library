@@ -1,0 +1,28 @@
+[Unit]
+Description=Home Library local catalogue
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=home-library
+Group=home-library
+WorkingDirectory=/var/lib/home-library/app
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+# Optional: append -backup-dir with the chosen external backup parent directory.
+# This displays read-only health; it does not schedule or create backups.
+ExecStart=/var/lib/home-library/app/bin/library -listen 127.0.0.1:8080 -data /var/lib/home-library/data -web /var/lib/home-library/app/web
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/home-library
+
+[Install]
+WantedBy=multi-user.target

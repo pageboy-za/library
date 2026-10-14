@@ -1,0 +1,21 @@
+# TEMPLATE ONLY. Edit paths for a chosen mounted backup disk before installation.
+[Unit]
+Description=Verified Home Library backup
+RequiresMountsFor=/mnt/library-backups
+
+[Service]
+Type=oneshot
+User=home-library
+Group=home-library
+# Do not silently write onto the Pi system disk when the backup disk is absent.
+ExecCondition=/usr/bin/mountpoint -q /mnt/library-backups
+ExecStart=/var/lib/home-library/app/deploy/backup-run.sh --binary /var/lib/home-library/app/bin/library-backup --data /var/lib/home-library/data --destination /mnt/library-backups/home-library
+TimeoutStartSec=30min
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/mnt/library-backups/home-library /var/lib/home-library/data
+
+# No Install section: this oneshot runs manually or through the optional timer.

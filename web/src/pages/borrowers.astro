@@ -1,0 +1,5 @@
+---
+import Layout from '../layouts/LibraryLayout.astro';
+import Borrowers from '../components/library/Borrowers.svelte';
+---
+<Layout title="Your readers" eyebrow="BORROWERS" description="Keep track of the people borrowing your books."><Borrowers client:load/></Layout>

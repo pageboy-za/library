@@ -1,0 +1,11 @@
+CREATE TABLE books(id INTEGER PRIMARY KEY, isbn TEXT UNIQUE, title TEXT NOT NULL, authors TEXT NOT NULL DEFAULT '[]', publisher TEXT NOT NULL DEFAULT '', publication_date TEXT NOT NULL DEFAULT '', source_url TEXT NOT NULL DEFAULT '', source_id TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 1, selected_cover_asset_id INTEGER REFERENCES cover_assets(id), created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE bookcases(id INTEGER PRIMARY KEY, name TEXT NOT NULL, room TEXT NOT NULL DEFAULT '');
+CREATE TABLE shelves(id INTEGER PRIMARY KEY, bookcase_id INTEGER NOT NULL REFERENCES bookcases(id), name TEXT NOT NULL, UNIQUE(bookcase_id,name));
+CREATE TABLE copies(id INTEGER PRIMARY KEY, book_id INTEGER NOT NULL REFERENCES books(id), shelf_id INTEGER REFERENCES shelves(id), label TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 1, archived_at TEXT);
+CREATE TABLE borrowers(id INTEGER PRIMARY KEY, name TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '', archived_at TEXT);
+CREATE TABLE loans(id INTEGER PRIMARY KEY, copy_id INTEGER NOT NULL REFERENCES copies(id), borrower_id INTEGER NOT NULL REFERENCES borrowers(id), checked_out_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, due_date TEXT, returned_at TEXT);
+CREATE UNIQUE INDEX one_active_loan ON loans(copy_id) WHERE returned_at IS NULL;
+CREATE TABLE cover_assets(id INTEGER PRIMARY KEY,book_id INTEGER NOT NULL REFERENCES books(id),local_path TEXT NOT NULL,source_kind TEXT NOT NULL,source_cover_id INTEGER,source_edition_id TEXT,checksum TEXT NOT NULL,UNIQUE(book_id,checksum));
+CREATE TABLE cover_contributions(id INTEGER PRIMARY KEY,book_id INTEGER NOT NULL REFERENCES books(id),asset_id INTEGER NOT NULL REFERENCES cover_assets(id),target_edition_id TEXT NOT NULL,state TEXT NOT NULL,remote_cover_id INTEGER,last_error TEXT);
+CREATE TABLE mutation_requests(key TEXT PRIMARY KEY,payload_hash TEXT NOT NULL,result_id INTEGER NOT NULL);
+CREATE INDEX copy_book ON copies(book_id);

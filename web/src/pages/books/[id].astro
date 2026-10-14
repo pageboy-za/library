@@ -1,0 +1,75 @@
+---
+import Layout from '../../layouts/LibraryLayout.astro';
+import CoverPicker from '../../components/library/CoverPicker.svelte';
+import DiscoveryEditor from '../../components/library/DiscoveryEditor.svelte';
+import BookWorkspace from '../../components/library/BookWorkspace.svelte';
+import QuickScan from '../../components/library/QuickScan.svelte';
+import {bookSnapshot,type StaticBook} from '../../lib/bookSnapshot';
+export function getStaticPaths(){return bookSnapshot().map(book=>({params:{id:String(book.id)},props:{book}}));}
+const {book}=Astro.props as {book:StaticBook};
+---
+<Layout title={book.title} hideHeader={true} compact={true}>
+<article class="book-page" data-book-id={book.id} data-book-revision={book.revision}>
+  <div class="book-page_top"><a class="book-page_back" href="/">← Back to library</a><QuickScan client:load/></div>
+  <div class="book-page_body">
+    <aside class="book-page_cover" aria-label="Book cover">
+      {book.cover_url?<img src={book.cover_url} alt={`Cover of ${book.title}`}/>:<div class="book-page_no-cover"><span>Cover unavailable</span></div>}
+      <button type="button" class="book-page_cover-action" data-change-cover>Change cover</button>
+    </aside>
+    <div class="book-page_work">
+    <header class="book-page_metadata">
+      
+      <h1>{book.title}</h1>
+      <p class="book-page_authors">{book.authors.join(', ')||'Author not recorded'}</p>
+      <dl class="book-page_facts">
+        <div><dt>Publisher</dt><dd>{book.publisher||'Not recorded'}</dd></div>
+        <div><dt>Published</dt><dd>{book.publication_date||'Not recorded'}</dd></div>
+        <div><dt>ISBN</dt><dd>{book.isbn||'No ISBN'}</dd></div>
+      </dl>
+      <div class="book-page_actions"><button type="button" data-edit-book={book.id} aria-expanded="false">Edit details</button></div>
+    </header>
+    <BookWorkspace bookId={book.id} client:load/>
+    </div>
+  </div>
+  <div class="book-page_secondary">
+    <CoverPicker bookId={book.id} client:load/>
+    <DiscoveryEditor bookId={book.id} client:load/>
+    {book.description&&<section class="book-page_about"><h2>About this book</h2><p>{book.description}</p></section>}
+    {book.subjects.length>0&&<section class="book-page_subjects"><h2>Subjects</h2><ul>{book.subjects.map(subject=><li>{subject}</li>)}</ul></section>}
+  </div>
+</article>
+</Layout>
+<style>
+@layer components {
+  .book-page {display:grid;gap:1.5rem;color:var(--app-ink,var(--text));min-width:0;}
+  .book-page_top {display:flex;align-items:center;justify-content:space-between;gap:1rem;padding-bottom:.125rem;}
+  .book-page_back {display:inline-flex;align-items:center;min-height:2.75rem;color:var(--app-muted,var(--text-2));font-size:.875rem;text-decoration:none;}
+  .book-page_back:hover {color:var(--app-accent,var(--text));text-decoration:underline;}
+  .book-page_body {display:grid;grid-template-columns:17.5rem minmax(0,1fr);gap:2.5rem;align-items:start;}
+  .book-page_cover {display:grid;gap:.75rem;align-content:start;img{display:block;width:100%;height:auto;max-height:28rem;object-fit:contain;object-position:left top;filter:drop-shadow(0 .25rem .375rem #201a151a);}}
+  .book-page_cover-action {justify-self:start;min-height:2.75rem;background:transparent;border:0;padding:.5rem 0;font-size:.875rem;color:var(--app-muted,var(--text-2));text-decoration:underline;text-underline-offset:.2em;}
+  .book-page_no-cover {min-height:23rem;display:grid;place-items:center;padding:1.5rem;text-align:center;border:1px solid var(--app-line,var(--border));background:var(--app-surface,var(--background-3));color:var(--app-muted,var(--text-2));font-size:.875rem;}
+  .book-page_work {display:grid;gap:1.25rem;min-width:0;}
+  .book-page_metadata {display:grid;gap:.5rem;min-width:0;}
+  .book-page h1 {font-family:var(--app-serif,Georgia,serif);font-weight:400;font-size:clamp(2rem,3.4vw,2.75rem);line-height:1.08;letter-spacing:-.025em;max-width:36ch;overflow-wrap:anywhere;}
+  .book-page_authors {font-size:1.0625rem;color:var(--app-muted,var(--text-2));}
+  .book-page_facts {display:grid;gap:.375rem;max-width:32rem;margin-top:.625rem;font-size:.875rem;div{display:grid;grid-template-columns:5.5rem minmax(0,1fr);align-content:start;gap:1rem;}dt{color:var(--app-muted,var(--text-2));font-size:.875rem;}dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}}
+  .book-page_actions {display:flex;gap:1.25rem;button{min-height:2.75rem;padding:.5rem 0;background:transparent;border:0;font-size:.875rem;color:var(--app-muted,var(--text-2));text-decoration:underline;text-underline-offset:.2em;}}
+  .book-page_secondary {display:grid;gap:1rem;padding-top:1.25rem;border-top:1px solid var(--app-line,var(--border));min-width:0;}
+  .book-page_secondary :global(details) {max-width:100%;font-size:.875rem;}
+  .book-page_secondary :global(summary) {min-height:2.75rem;display:flex;align-items:center;}
+  .book-page_about,.book-page_subjects {display:grid;gap:.75rem;max-width:75ch;h2{font-family:var(--app-serif,Georgia,serif);font-weight:400;font-size:1.375rem;line-height:1.25;}}
+  .book-page_about p {font-size:.9375rem;line-height:1.65;white-space:pre-line;overflow-wrap:anywhere;}
+  .book-page_subjects ul {display:flex;flex-wrap:wrap;gap:.5rem 1rem;list-style:none;padding:0;li{font-size:.875rem;color:var(--app-muted,var(--text-2));overflow-wrap:anywhere;}}
+  @media(width<70rem) {.book-page_body{grid-template-columns:14rem minmax(0,1fr);gap:1.75rem;}.book-page_no-cover{min-height:18rem;}.book-page_facts{gap:.75rem;}}
+  @media(width<58rem) {.book-page_body{grid-template-columns:8rem minmax(0,1fr);gap:1.25rem;}.book-page_work{display:contents;}.book-page_body :global(.workspace){grid-column:1/-1;}.book-page_cover{grid-row:1;}.book-page_metadata{grid-column:2;grid-row:1;}.book-page_no-cover{min-height:11rem;padding:.75rem;}.book-page_cover-action{font-size:.8125rem;}.book-page_facts{grid-template-columns:1fr;gap:.5rem;div{grid-template-columns:5rem 1fr;gap:.5rem;}dt{font-size:.8125rem;}}.book-page h1{font-size:2rem;}}
+  @media(width<40rem) {.book-page_top{align-items:stretch;flex-direction:column;gap:.5rem;}.book-page_body{grid-template-columns:6.5rem minmax(0,1fr);gap:1rem;}.book-page_no-cover{min-height:9rem;}.book-page h1{font-size:1.75rem;}.book-page_authors{font-size:.9375rem;}.book-page_facts div{grid-template-columns:1fr;gap:.125rem;}}
+}
+</style>
+
+<script>
+const edit=document.querySelector<HTMLButtonElement>('[data-edit-book]');
+edit?.addEventListener('click',()=>window.dispatchEvent(new CustomEvent('library-edit-book-details',{detail:Number(edit.dataset.editBook)})));
+window.addEventListener('library-book-editor-changed',(event)=>{const detail=(event as CustomEvent<{bookId:number;open:boolean}>).detail;if(edit&&detail.bookId===Number(edit.dataset.editBook)){edit.setAttribute('aria-expanded',String(detail.open));edit.textContent=detail.open?'Close editor':'Edit details';}});
+document.querySelector('[data-change-cover]')?.addEventListener('click',()=>{const picker=document.querySelector<HTMLDetailsElement>('.book-page .cover-picker');if(picker){picker.open=true;picker.scrollIntoView({block:'start'});picker.querySelector<HTMLElement>('summary')?.focus();}});
+</script>

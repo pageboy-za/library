@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Home Library kiosk
+Comment=Open the local library in Chromium kiosk mode
+Exec=/usr/local/bin/home-library-kiosk
+Terminal=false

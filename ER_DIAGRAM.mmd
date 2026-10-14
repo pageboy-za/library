@@ -1,0 +1,93 @@
+erDiagram
+    books ||--o{ copies : has
+    bookcases ||--o{ shelves : contains
+    shelves o|--o{ copies : home_location
+    copies ||--o{ loans : history
+    borrowers ||--o{ loans : borrows
+    books ||--o| book_discovery : describes
+    books ||--o{ cover_assets : owns
+    cover_assets o|--o{ books : selected_FK
+    books ||--o{ cover_contributions : reserved_target
+    cover_assets ||--o{ cover_contributions : reserved_upload
+
+    books {
+        INTEGER id PK
+        TEXT isbn UK "nullable; canonical ISBN"
+        TEXT title
+        TEXT authors "JSON string array"
+        TEXT publisher
+        TEXT publication_date "source text"
+        TEXT source_url
+        TEXT source_id "external edition ID"
+        INTEGER revision
+        INTEGER selected_cover_asset_id FK "nullable; app validates same book"
+        TEXT created_at
+    }
+    copies {
+        INTEGER id PK
+        INTEGER book_id FK
+        INTEGER shelf_id FK "nullable"
+        TEXT label
+        INTEGER revision
+        TEXT archived_at "nullable"
+    }
+    bookcases {
+        INTEGER id PK
+        TEXT name
+        TEXT room
+    }
+    shelves {
+        INTEGER id PK
+        INTEGER bookcase_id FK
+        TEXT name "unique within bookcase"
+    }
+    borrowers {
+        INTEGER id PK
+        TEXT name
+        TEXT notes
+        TEXT archived_at "nullable"
+    }
+    loans {
+        INTEGER id PK
+        INTEGER copy_id FK
+        INTEGER borrower_id FK
+        TEXT checked_out_at
+        TEXT due_date "nullable"
+        TEXT returned_at "nullable; active when null"
+    }
+    book_discovery {
+        INTEGER book_id PK,FK
+        TEXT description
+        TEXT subjects "JSON string array"
+        TEXT tags "JSON string array; private"
+        TEXT notes "private"
+        INTEGER revision
+    }
+    cover_assets {
+        INTEGER id PK
+        INTEGER book_id FK
+        TEXT local_path
+        TEXT source_kind
+        INTEGER source_cover_id "nullable"
+        TEXT source_edition_id "nullable"
+        TEXT checksum "unique with book_id"
+    }
+    cover_contributions {
+        INTEGER id PK
+        INTEGER book_id FK
+        INTEGER asset_id FK
+        TEXT target_edition_id
+        TEXT state
+        INTEGER remote_cover_id "nullable"
+        TEXT last_error "nullable"
+    }
+    mutation_requests {
+        TEXT key PK
+        TEXT payload_hash
+        INTEGER result_id "operation-specific; no FK"
+    }
+    location_versions {
+        TEXT kind PK "shelf or bookcase"
+        INTEGER id PK "application-managed reference"
+        INTEGER revision "greater than zero"
+    }

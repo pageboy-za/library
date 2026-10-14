@@ -1,0 +1,5 @@
+---
+import Layout from '../layouts/LibraryLayout.astro';
+---
+<Layout title="Opening your book" eyebrow="YOUR LIBRARY" description=""><a href="/">Back to library</a></Layout>
+<script>const id=new URLSearchParams(location.search).get('id');if(id&&/^[1-9][0-9]*$/.test(id))location.replace(`/books/${id}/`);</script>

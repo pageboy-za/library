@@ -1,0 +1,12 @@
+---
+import '../styles/global.css';
+import '../styles/app.css';
+import SkipLink from '../components/global/SkipLink.astro';
+import Nav from '../components/global/Nav.astro';
+const { title, description, hideHeader=false } = Astro.props;
+---
+<!doctype html>
+<html lang="en" class="theme-light">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="theme-color" content="#f6f3ed"/><title>{title} · Home Library</title><meta name="description" content="Your books, their shelves and the people reading them."/></head>
+<body><SkipLink/><Nav/><main id="main" tabindex="-1" class="app-main"><div class="app-content">{!hideHeader&&<header class="app-heading"><h1>{title}</h1>{description&&<p>{description}</p>}</header>}<slot/></div></main><noscript><p class="container">Enable JavaScript to search and manage your library.</p></noscript></body>
+</html>

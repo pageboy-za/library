@@ -1,0 +1,7 @@
+<script lang="ts">
+import {onMount} from 'svelte';let isbn='';let input:HTMLInputElement;
+onMount(()=>input?.focus());
+function open(event:SubmitEvent){event.preventDefault();const scanned=isbn.trim();if(scanned)window.location.href=`/scan/?isbn=${encodeURIComponent(scanned)}`;else input?.focus();}
+</script>
+<form class="quick-scan" onsubmit={open}><input bind:this={input} bind:value={isbn} aria-label="Scan next ISBN" placeholder="Scan next ISBN" maxlength="64" inputmode="numeric" autocomplete="off"/><button type="submit" aria-label="Open scanned book">→</button></form>
+<style>@layer components{.quick-scan{display:flex;width:18.75rem;max-width:100%;height:2.75rem;border:1px solid var(--app-line,var(--border));border-radius:.125rem;background:var(--app-surface,var(--background));input{flex:1;min-width:0;border:0;border-radius:0;background:transparent;padding:.625rem .75rem;font-size:.875rem;outline:none;} &:focus-within{border-color:var(--app-focus,var(--app-accent));box-shadow:0 0 0 1px var(--app-focus,var(--app-accent));}button{width:2.75rem;border:0;background:transparent;color:var(--app-muted,var(--text-2));font-size:1.125rem;}@media(width<40rem){width:100%;}}}</style>

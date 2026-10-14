@@ -1,0 +1,18 @@
+/* Cascade order, lowest priority first */
+
+@layer base, patterns, components, utilities;
+
+@import "./base.css" layer(base);
+@import "./patterns.css" layer(patterns);
+@import "./utilities.css" layer(utilities);
+
+@layer base { html {background:var(--background)} }
+@layer components {
+.library-field{display:grid;gap:.5rem;font-size:1rem;font-weight:500;input,select{width:100%;min-height:2.9rem;background:var(--background-3);border:.0625rem solid var(--border);border-radius:.5rem;padding:.65rem .8rem;color:var(--text);font:inherit}}
+.library-button{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:2.9rem;padding:.7rem 1.15rem;background:var(--button-background);color:var(--button-text);border:.0625rem solid var(--button-border);border-radius:.5rem;font-size:1rem;font-weight:500;text-decoration:none;width:fit-content;cursor:pointer;&:hover{background:var(--button-background-hover);color:var(--button-text-hover)}&.secondary{background:transparent;color:var(--text);border-color:var(--border);&:hover{background:var(--background-2)}}&:disabled{opacity:.55;cursor:wait}}
+.library-help{font-weight:400;font-size:.875rem;color:var(--text-2)}
+.library-badge{display:inline-block;width:fit-content;background:#e4eee5;color:#285943;padding:.3rem .65rem;border-radius:.3rem;font-size:.8rem;font-variant-numeric:tabular-nums;}
+.library-error{padding:1rem;background:#fae8e5;color:#862c20;border-radius:.5rem}
+.library-notice{padding:1rem;background:var(--background-2);border-radius:.5rem}
+.library-actions{display:flex;gap:1rem;align-items:center}
+}

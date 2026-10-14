@@ -1,0 +1,40 @@
+# Offline application acceptance
+
+`deploy/offline-acceptance.sh` exercises the built application with temporary data. It accepts **no arguments**, so a household data path cannot be supplied. It does not install dependencies, upload files, change a service, or connect to an existing library server.
+
+## Run
+
+Build the current Go binaries and install the locked frontend dependencies beforehand. The runner requires Python 3, Node, `bin/library`, `bin/library-backup`, and the existing `web/node_modules/` Astro installation:
+
+```sh
+./deploy/offline-acceptance.sh
+```
+
+It starts its own server on a temporary `127.0.0.1` port. Another owned loopback listener acts as a deny proxy: every CONNECT/GET/POST receives HTTP 503 and is never forwarded. Only child-process proxy settings change. The API client bypasses proxies for local requests. The check requires evidence that an Open Library request reached the deny proxy, preventing a successful online response from being mistaken for offline fallback.
+
+Current metadata, enrichment and cover clients use Go's default HTTP transport, whose `ProxyFromEnvironment` honors these settings. Astro telemetry is disabled and frontend assets/fonts are local. This simulates provider failure; it is not operating-system network isolation or a physical Wi-Fi-disconnection test.
+
+## What it checks
+
+- An uncached ISBN fails quickly and offers manual entry.
+- A manual book without an ISBN accepts a year-only publication date and a shelf.
+- A generated synthetic PNG uploads locally, becomes the selected cover and is served as a normalized JPEG.
+- A metadata edit generates static book HTML containing the new title/year and Svelte island markup.
+- Assigning an ISBN preserves the chosen cover; repeated ISBN scans open the same record without adding copies. Another physical copy is added explicitly.
+- Checkout changes live inventory availability/shelf status while the static metadata HTML remains unchanged.
+- A public description appears in generated HTML; private notes are excluded and remain in the local API.
+- Author search finds the saved book.
+- The backup utility creates and verifies a consistent backup while the fixture server runs, restores to a separate clean folder, and starts a new offline instance.
+- Restored copies, an outstanding loan, private notes, static pages and cover bytes remain intact. Returning the loan restores availability.
+
+The web source is copied into the disposable workspace; its dependency directory links to the existing installation. The script generates no pages in household data. Request, startup and backup commands have time limits; shutdown targets only its own subprocess. Cleanup stops that process before removing temporary files. A listener-permission failure is a failed check and should be reported, not worked around by using the household server.
+
+## Limits
+
+This validates API behavior, generated HTML and recovery using the actual built executables. It does not drive a browser, prove Svelte hydration/click behavior, test scanner focus or timing, or establish Pi performance, systemd startup, touchscreen operation or durable backup-disk behavior. Browser and physical Raspberry Pi acceptance remain separate. It tests the existing binaries; rebuild after source changes before relying on its result.
+
+Recorded development result: **PASS on 10 October 2026**, using the Mac's built binaries and installed Astro dependencies. The deny-proxy observation, all fixture assertions, backup verification, restored offline startup and local cover checksum passed. Temporary processes and folders were cleaned up; no household database was opened. This is development acceptance, not a Pi hardware sign-off.
+
+## Verified checkpoint
+
+21:48 Europe/London, 10 October 2026: the runner passed once against the current built executables. Its temporary server, proxy and data were removed. Shell syntax and refusal of supplied data arguments also passed. The source-package check confirmed this runner and both acceptance documents are included.

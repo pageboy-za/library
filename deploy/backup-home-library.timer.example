@@ -1,0 +1,12 @@
+# TEMPLATE ONLY. No timer is enabled until installed deliberately on the Pi.
+[Unit]
+Description=Daily verified Home Library backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=10min
+Persistent=true
+Unit=backup-home-library.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,301 @@
+---
+import {bookSnapshot} from '../../lib/bookSnapshot';
+import inter from '../../assets/fonts/inter-regular.woff2';
+import newsreader from '../../assets/fonts/newsreader-latin.woff2';
+
+const books = bookSnapshot();
+const palettes = ['ink', 'clay', 'ochre', 'sage', 'wine'];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>The library · Gallery design</title>
+    <link rel="preload" href={inter} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={newsreader} as="font" type="font/woff2" crossorigin />
+    <style is:global>
+      @font-face {font-family: 'Gallery Inter'; src: url('../../assets/fonts/inter-regular.woff2') format('woff2'); font-style: normal; font-weight: 400; font-display: swap;}
+      @font-face {font-family: 'Gallery Newsreader'; src: url('../../assets/fonts/newsreader-latin.woff2') format('woff2'); font-style: normal; font-weight: 200 800; font-display: swap;}
+      * {box-sizing: border-box;}
+      body {margin: 0; background: #f4f1eb; color: #272923; font-family: 'Gallery Inter', sans-serif; -webkit-font-smoothing: antialiased;}
+      button, input {font: inherit;}
+      button, a, input {-webkit-tap-highlight-color: transparent;}
+      button, a {touch-action: manipulation;}
+      a {color: inherit;}
+      button {color: inherit;}
+      :focus-visible {outline: 3px solid #416049; outline-offset: 5px;}
+      ::selection {background: #d4dfcb; color: #272923;}
+      [hidden] {display: none !important;}
+    </style>
+  </head>
+  <body>
+    <div class="gallery-app">
+      <header class="utility">
+        <a class="home-link" href="/" aria-label="Back to your library">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 5v14M10 5v14M15 5l4 14" stroke="currentColor" stroke-width="1.7" /></svg>
+          <span>HOME LIBRARY</span>
+        </a>
+        <div class="utility-right"><span class="preview-label">Design preview</span><a class="exit-link" href="/">Back to library <span aria-hidden="true">↗</span></a></div>
+      </header>
+
+      <main>
+        <div class="collection-heading">
+          <div class="title-group"><p class="eyebrow">A COLLECTION OF YOUR OWN</p><h1>The library<span>.</span></h1></div>
+          <div class="collection-tools">
+            <label class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" /><path d="m15 15 5 5" /></svg>
+              <input id="gallery-search" type="search" placeholder="Find a title or author" aria-label="Find a title or author" autocomplete="off" />
+            </label>
+            <p class="collection-count"><span id="visible-count">{books.length}</span> <span id="count-noun">{books.length === 1 ? 'book' : 'books'}</span><span class="count-divider" aria-hidden="true">/</span> Your collection</p>
+          </div>
+        </div>
+
+        <section class="collection" aria-label="Books in your library">
+          <div class="shelf" id="book-shelf">
+            {books.map((book, index) => (
+              <article class="book" data-search={`${book.title} ${book.authors.join(' ')}`.toLocaleLowerCase()}>
+                <a class="book-link" href={`/books/${book.id}/`} data-isbn={book.isbn} aria-label={`Open ${book.title} by ${book.authors.join(', ')}`}>
+                  <div class="cover-space">
+                    <div class:list={['book-jacket', palettes[index % palettes.length], {'has-cover': !!book.cover_url}]}>
+                      <div class:list={['type-cover', {'long-title': book.title.length > 35, 'very-long-title': book.title.length > 65}]} aria-hidden="true">
+                        <span class="cover-publisher">{book.publisher || 'HOME LIBRARY'}</span>
+                        <span class="cover-rule"></span>
+                        <span class="cover-title">{book.title}</span>
+                        <span class="cover-author">{book.authors.join(' · ')}</span>
+                        <span class="cover-bottom"><span>{book.publication_date?.slice(0, 4)}</span><span class="cover-mark">✳</span></span>
+                      </div>
+                      {book.cover_url && <img src={book.cover_url} alt="" loading="eager" decoding="async" />}
+                    </div>
+                    <span class="open-book" aria-hidden="true">Open book <span>↗</span></span>
+                  </div>
+                  <div class="book-caption">
+                    <span class="book-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                    <div><h2>{book.title}</h2><p>{book.authors.join(', ') || 'Author not listed'}</p></div>
+                  </div>
+                </a>
+              </article>
+            ))}
+          </div>
+          <p class="empty-state" id="empty-state" hidden={books.length > 0}>{books.length ? 'No books match that title or author.' : 'Your collection begins with a book. Scan its ISBN below.'}</p>
+        </section>
+        <div class="shelf-note"><span>Pick a book. Turn a page.</span><span class="browse-hint">Select a cover to open its details <span aria-hidden="true">↗</span></span></div>
+      </main>
+
+      <footer class="task-bar" aria-label="Library actions">
+        <div class="scan-task">
+          <div class="scan-heading"><label for="gallery-isbn">Scan a book</label><span>Barcode or ISBN <kbd aria-label="Press slash to focus the scanner">/</kbd></span></div>
+          <form id="gallery-scan" action="/scan/" method="get">
+            <svg class="barcode" viewBox="0 0 32 28" fill="none" aria-hidden="true"><path d="M2 7V2h5M25 2h5v5M30 21v5h-5M7 26H2v-5M7 8v12M11 8v12M15 8v12M18 8v12M23 8v12M26 8v12" stroke="currentColor" stroke-width="1.5" /><path d="M12 8v12M22 8v12" stroke="currentColor" stroke-width="1.5" /></svg>
+            <input id="gallery-isbn" name="isbn" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="Scan or enter an ISBN" aria-label="Scan or enter an ISBN to open a book" required />
+            <button type="submit" aria-label="Open scanned book"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.6" /></svg></button>
+          </form>
+        </div>
+        <div class="loans-tasks">
+          <a class="task-action" href="/loans/" aria-label="Open loans and returns">
+            <svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M6 20V5h10v5M6 20h10v-4M6 20a2 2 0 0 0 2 3h8v-7M24 13H12m4-4-4 4 4 4" /></svg>
+            <span>Loans &amp; returns</span><span class="task-arrow" aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      const isbnInput = document.querySelector<HTMLInputElement>('#gallery-isbn');
+      const scanForm = document.querySelector<HTMLFormElement>('#gallery-scan');
+      const searchInput = document.querySelector<HTMLInputElement>('#gallery-search');
+      const bookCards = Array.from(document.querySelectorAll<HTMLElement>('.book'));
+      const normalizeISBN = (value: string) => value.replace(/[^0-9X]/gi, '').toUpperCase();
+
+      scanForm?.addEventListener('submit', (event) => {
+        const isbn = normalizeISBN(isbnInput?.value || '');
+        if (!isbn) {event.preventDefault(); isbnInput?.focus(); return;}
+        const match = Array.from(document.querySelectorAll<HTMLAnchorElement>('.book-link')).find((link) => normalizeISBN(link.dataset.isbn || '') === isbn);
+        event.preventDefault();
+        window.location.assign(match?.href || `/scan/?isbn=${encodeURIComponent(isbn)}`);
+      });
+      searchInput?.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLocaleLowerCase();
+        let visible = 0;
+        bookCards.forEach((book) => {book.hidden = !(book.dataset.search || '').includes(query); if (!book.hidden) visible++;});
+        const count = document.querySelector('#visible-count');
+        const noun = document.querySelector('#count-noun');
+        const empty = document.querySelector<HTMLElement>('#empty-state');
+        if (count) count.textContent = String(visible);
+        if (noun) noun.textContent = visible === 1 ? 'book' : 'books';
+        if (empty) empty.hidden = visible !== 0;
+      });
+      document.addEventListener('keydown', (event) => {
+        const target = event.target as HTMLElement;
+        if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) && !target.isContentEditable) {
+          event.preventDefault(); isbnInput?.focus();
+        }
+      });
+      document.querySelectorAll<HTMLImageElement>('.book-jacket img').forEach((img) => {
+        const showFallback = () => {img.hidden = true; img.parentElement?.classList.remove('has-cover');};
+        img.addEventListener('error', showFallback);
+        if (img.complete && !img.naturalWidth) showFallback();
+      });
+      if (window.matchMedia('(min-width: 800px) and (pointer: fine)').matches) isbnInput?.focus({preventScroll: true});
+    </script>
+
+    <style>
+      .gallery-app {width: min(1600px, 100%); min-height: 100svh; padding: 0 42px 20px; margin: 0 auto; display: flex; flex-direction: column;}
+      .utility {height: 65px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid #dcd9d1;}
+      .home-link {display: inline-flex; min-height: 44px; align-items: center; gap: 9px; text-decoration: none; font-size: 10px; letter-spacing: .13em;}
+      .home-link svg {width: 27px; height: 27px;}
+      .utility-right {display: flex; align-items: center; gap: 23px; font-size: 11px;}
+      .preview-label {color: #76766d;}
+      .exit-link {min-height: 44px; display: flex; align-items: center; gap: 13px; text-decoration: none;}
+      .exit-link:hover {text-decoration: underline; text-underline-offset: 4px;}
+      main {flex: 1; display: flex; flex-direction: column;}
+      .collection-heading {display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 28px 0 16px;}
+      .eyebrow {margin: 0 0 12px; font-size: 9px; letter-spacing: .17em; color: #676b61;}
+      h1 {margin: 0; font: 400 clamp(66px, 6.6vw, 98px)/.98 'Gallery Newsreader', Georgia, serif; letter-spacing: -.055em;}
+      h1 > span {color: #658167;}
+      .collection-tools {width: 253px; padding-bottom: 5px;}
+      .search-box {display: flex; align-items: center; min-height: 44px; gap: 11px; border-bottom: 1px solid #b8bcb1;}
+      .search-box svg {width: 19px; height: 19px; flex-shrink: 0; stroke: #565f50; stroke-width: 1.4;}
+      .search-box input {min-width: 0; width: 100%; min-height: 44px; background: transparent; border: 0; outline-offset: 1px; border-radius: 0; font-size: 12px; color: #33392e;}
+      .search-box input::placeholder {color: #676b61; opacity: 1;}
+      .collection-count {display: flex; align-items: center; gap: 4px; margin: 14px 0 0; font-size: 10px; color: #6b6c62;}
+      .count-divider {margin: 0 10px; color: #94978a;}
+      .collection {position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 360px;}
+      .shelf {display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); column-gap: clamp(20px, 3.5vw, 54px); padding: 20px 3px 0;}
+      .book {min-width: 0;}
+      .book-link {display: block; text-decoration: none;}
+      .cover-space {height: clamp(238px, 22vw, 310px); position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 22px;}
+      .cover-space::after {content: ''; position: absolute; bottom: 20px; width: 98%; height: 11px; border-radius: 50%; background: #70694f; filter: blur(10px); opacity: .15; z-index: -1;}
+      .book-jacket {position: relative; width: 100%; height: 100%; border-radius: 1px 3px 3px 1px; transition: transform .23s ease, filter .23s ease; display: flex; align-items: flex-end;}
+      .book-jacket img {position: relative; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; filter: drop-shadow(3px 7px 5px #29282020);}
+      .book-link:hover .book-jacket, .book-link:focus-visible .book-jacket {transform: translateY(-8px); filter: drop-shadow(0 7px 7px #25291b13);}
+      .type-cover {width: 100%; min-height: 80%; aspect-ratio: .685; display: flex; flex-direction: column; position: relative; padding: 16px 14px 13px 18px; color: #f6f1e5; background: #253344; border-radius: 1px 3px 3px 1px; box-shadow: 3px 7px 8px #29282020, inset 3px 0 #ffffff12, inset -1px 0 #00000020; overflow: hidden;}
+      .type-cover::before {content: ''; position: absolute; left: 5px; top: 0; bottom: 0; width: 1px; background: #00000018;}
+      .has-cover .type-cover {display: none;}
+      .clay .type-cover {background: #bc6c50; color: #fff2dc;}
+      .ochre .type-cover {background: #d9b969; color: #3c3828;}
+      .sage .type-cover {background: #a6b49d; color: #283b32;}
+      .wine .type-cover {background: #673e46; color: #f9ead6;}
+      .cover-publisher {min-height: 25px; font-size: 7px; line-height: 1.5; letter-spacing: .09em; text-transform: uppercase; overflow-wrap: anywhere;}
+      .cover-rule {width: 30px; height: 1px; background: currentColor; opacity: .6; margin: 9px 0 17px; flex-shrink: 0;}
+      .cover-title {font-family: 'Gallery Newsreader', Georgia, serif; font-size: clamp(25px, 2.7vw, 39px); letter-spacing: -.025em; line-height: 1.05; text-wrap: balance; overflow-wrap: anywhere;}
+      .long-title .cover-title {font-size: clamp(21px, 2.2vw, 32px);}
+      .very-long-title .cover-title {font-size: clamp(17px, 1.8vw, 26px);}
+      .cover-author {padding: 17px 0 10px; font-size: 9px; line-height: 1.4;}
+      .cover-bottom {margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; font-size: 8px;}
+      .cover-mark {font-size: 22px; line-height: 1;}
+      .open-book {position: absolute; left: 50%; bottom: 34px; transform: translate(-50%, 4px); white-space: nowrap; padding: 10px 13px; font-size: 10px; border-radius: 4px; background: #fbfaf6; box-shadow: 0 2px 8px #22222220; opacity: 0; transition: opacity .2s, transform .2s;}
+      .open-book > span {margin-left: 13px;}
+      .book-link:hover .open-book, .book-link:focus-visible .open-book {opacity: 1; transform: translate(-50%, 0);}
+      .book-caption {display: flex; gap: 13px; border-top: 1px solid #d5d5ca; padding-top: 15px; min-height: 75px;}
+      .book-number {padding-top: 3px; font-size: 9px; color: #84877b;}
+      .book-caption h2 {font-family: 'Gallery Newsreader', Georgia, serif; font-size: 20px; line-height: 1.08; font-weight: 400; letter-spacing: -.018em; margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;}
+      .book-caption p {font-size: 10px; line-height: 1.5; color: #686c61; margin: 7px 0 0;}
+      .empty-state {padding: 50px 0; text-align: center; font-family: 'Gallery Newsreader', Georgia, serif; font-size: 28px; color: #686c61;}
+      .shelf-note {display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 5px 0 20px; color: #707366;}
+      .shelf-note > span:first-child {font-family: 'Gallery Newsreader', Georgia, serif; font-size: 18px; font-style: italic;}
+      .browse-hint {font-size: 10px;}
+      .browse-hint > span {margin-left: 12px;}
+      .task-bar {display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: center; gap: 36px; border: 1px solid #dadcd0; background: #eaece2; border-radius: 9px; padding: 20px 23px; margin-top: 5px;}
+      .scan-heading {display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 14px;}
+      .scan-heading label {font-size: 13px;}
+      .scan-heading > span {font-size: 9px; color: #72776a; display: flex; align-items: center; gap: 9px;}
+      kbd {display: inline-grid; place-items: center; width: 17px; height: 18px; font-family: inherit; border: 1px solid #c5cabb; border-radius: 3px;}
+      #gallery-scan {display: flex; align-items: center; gap: 16px; border: 1px solid #bcc6b0; border-radius: 5px; background: #fafbf6; min-height: 58px; padding: 5px 5px 5px 15px; transition: box-shadow .15s, border-color .15s;}
+      #gallery-scan:focus-within {border-color: #68805f; box-shadow: 0 0 0 3px #68805f16;}
+      .barcode {width: 28px; height: 25px; color: #56614c; flex-shrink: 0;}
+      #gallery-isbn {width: 100%; min-width: 0; min-height: 44px; border: 0; padding: 0; background: transparent; font-size: 14px; outline: none; color: #323e2c;}
+      #gallery-isbn::placeholder {color: #7a8073; opacity: 1;}
+      #gallery-scan button {width: 46px; height: 46px; flex-shrink: 0; background: #435d40; color: #fffdf5; display: grid; place-items: center; border: none; border-radius: 3px; cursor: pointer;}
+      #gallery-scan button:hover {background: #30492e;}
+      #gallery-scan button svg {width: 24px; height: 24px;}
+      .loans-tasks {display: grid; grid-template-columns: minmax(0, 1fr); border-left: 1px solid #ccd1c2; padding-left: 26px; gap: 16px;}
+      .task-action {position: relative; min-height: 81px; display: flex; flex-direction: column; justify-content: space-between; padding: 9px 9px 8px; text-decoration: none; border-radius: 4px; transition: background .15s;}
+      .task-action:hover {background: #dfe4d6;}
+      .task-action > svg {width: 27px; height: 27px; stroke: #495740; stroke-width: 1.4;}
+      .task-action > span:not(.task-arrow) {font-size: 13px;}
+      .task-arrow {position: absolute; right: 8px; top: 12px; font-size: 17px; color: #5d6b51;}
+      @media (min-width: 1500px) {.collection-heading {padding-top: 48px;} .task-bar {margin-top: 20px;} .collection {min-height: 420px;}}
+      @media (max-width: 1050px) {
+        .gallery-app {padding-inline: 25px;}
+        .shelf {column-gap: 22px;}
+        .book-caption {gap: 8px;}
+        .book-caption h2 {font-size: 18px;}
+        .task-bar {gap: 20px; padding-inline: 18px;}
+        .loans-tasks {padding-left: 13px; gap: 6px;}
+      }
+      @media (max-width: 799px) {
+        .gallery-app {padding: 0 24px 18px;}
+        .utility {height: 65px;}
+        .exit-link {font-size: 0; gap: 0; width: 44px; justify-content: flex-end;}
+        .exit-link span {font-size: 21px;}
+        .utility-right {gap: 12px;}
+        .collection-heading {padding-top: 30px; align-items: flex-start; flex-direction: column; gap: 21px;}
+        h1 {font-size: 72px;}
+        .collection-tools {display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; width: 100%; gap: 18px; padding-bottom: 0;}
+        .search-box {width: min(240px, 54%);}
+        .search-box input {font-size: 11px;}
+        .collection-count {margin: 0; white-space: nowrap; font-size: 9px;}
+        .count-divider {margin: 0 4px;}
+        .collection {min-height: 0;}
+        .shelf {grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 25px 26px; padding-top: 16px;}
+        .cover-space {height: 250px;}
+        .book-caption {min-height: 84px;}
+        .cover-title {font-size: 30px;}
+        .long-title .cover-title {font-size: 25px;}
+        .very-long-title .cover-title {font-size: 21px;}
+        .shelf-note {padding-top: 20px;}
+        .browse-hint {display: none;}
+        .task-bar {position: sticky; bottom: 10px; z-index: 2; box-shadow: 0 5px 25px #323b261c; grid-template-columns: 1fr; gap: 12px; padding: 14px;}
+        .loans-tasks {border-left: 0; padding-left: 0; gap: 12px;}
+        .task-action {flex-direction: row; align-items: center; justify-content: flex-start; gap: 9px; min-height: 44px; padding: 6px 10px; background: #f5f6ef;}
+        .task-action > svg {width: 24px; height: 24px; flex-shrink: 0;}
+        .task-action > span:not(.task-arrow) {font-size: 12px;}
+        .task-arrow {display: none;}
+        .scan-heading > span kbd {display: none;}
+        .scan-heading > span {font-size: 9px;}
+      }
+      @media (max-width: 520px) {
+        .gallery-app {padding-inline: 18px;}
+        .home-link {font-size: 9px; letter-spacing: .09em; gap: 6px;}
+        .preview-label {font-size: 9px;}
+        .utility-right {gap: 0;}
+        .collection-heading {padding-top: 26px; gap: 19px; padding-bottom: 10px;}
+        h1 {font-size: 65px;}
+        .eyebrow {font-size: 8px; margin-bottom: 10px;}
+        .collection-tools {gap: 12px;}
+        .collection-count {font-size: 9px; flex-wrap: wrap; width: 94px; gap: 4px;}
+        .collection-count .count-divider {display: none;}
+        .search-box {width: 205px; max-width: 65%;}
+        .search-box input {font-size: 10px;}
+        .search-box svg {width: 17px;}
+        .shelf {grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 19px 25px;}
+        .cover-space {height: 239px; padding-bottom: 17px;}
+        .book-caption {gap: 8px; padding-top: 11px; min-height: 83px;}
+        .book-caption h2 {font-size: 18px;}
+        .book-caption p {font-size: 9px; margin-top: 5px;}
+        .book-number {font-size: 8px; padding-top: 2px;}
+        .type-cover {padding: 13px 11px 12px 14px;}
+        .cover-title {font-size: 27px;}
+        .long-title .cover-title {font-size: 23px;}
+        .very-long-title .cover-title {font-size: 19px;}
+        .cover-publisher {font-size: 6px; min-height: 18px;}
+        .cover-rule {margin-block: 8px 13px;}
+        .cover-author {font-size: 8px; padding-top: 13px;}
+        .task-bar {bottom: 9px; margin-inline: -6px; padding: 12px; gap: 10px;}
+        .scan-heading {margin-bottom: 8px;}
+        .scan-heading label {font-size: 12px;}
+        #gallery-scan {gap: 10px; padding-left: 12px; min-height: 55px;}
+        #gallery-isbn {font-size: 12px;}
+        #gallery-scan button {width: 44px; height: 44px;}
+        .barcode {width: 24px;}
+        .loans-tasks {gap: 9px;}
+        .task-action {padding: 6px 7px; gap: 7px;}
+        .task-action > span:not(.task-arrow) {font-size: 11px;}
+      }
+      @media (prefers-reduced-motion: reduce) {.book-jacket, .open-book, .task-action, #gallery-scan {transition: none;} .book-link:hover .book-jacket, .book-link:focus-visible .book-jacket {transform: none;}}
+    </style>
+  </body>
+</html>
