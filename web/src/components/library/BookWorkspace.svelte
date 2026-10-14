@@ -1,6 +1,7 @@
 <script lang="ts">
 import {onMount,tick} from 'svelte';
 import {api,type Book,type Copy,type Shelf,type Draft} from '../../lib/api';
+import BookDelete from './BookDelete.svelte';
 import BookForm from './BookForm.svelte';import CopyArchive from './CopyArchive.svelte';
 export let bookId:number;
 type Borrower={id:number;name:string;notes:string};type Loan={id:number;copy_id:number;borrower:string;checked_out_at:string;due_date:string|null;returned_at:string|null};
@@ -37,7 +38,7 @@ async function addBorrower(copyId:number){const name=(names[copyId]||'').trim();
 {/each}
 <details class="workspace_more"><summary>Add another copy</summary><div class="workspace_add"><label class="library-field">Shelf for another copy<select bind:value={addShelf} disabled={busy}><option value="">Unassigned</option>{#each shelves as shelf}<option value={shelf.id} title={`${shelf.bookcase} / ${shelf.name}`}>{shelfLabel(shelf)}</option>{/each}</select></label><button class="library-button secondary" disabled={busy} onclick={addCopy}>+ Add another copy</button><p>Only add a copy when you own another physical book of this edition.</p></div></details>
 {#if loans.some(loan=>loan.returned_at)}<details class="workspace_history"><summary>Loan history</summary><ul>{#each loans.filter(loan=>loan.returned_at) as loan}<li>{loan.borrower} · Lent {loan.checked_out_at.slice(0,10)} · Returned {loan.returned_at?.slice(0,10)}</li>{/each}</ul></details>{/if}
-{/if}<p role="status">{message}</p>
+<BookDelete {book} disabled={busy} busyChanged={(value)=>busy=value}/>{/if}<p role="status">{message}</p>
 </section>
 <style>
 @layer components {

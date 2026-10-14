@@ -84,6 +84,23 @@ func prepareDatabase(ctx context.Context, db *sql.DB) error {
 	BEGIN UPDATE library_preferences SET default_shelf_id=NULL,revision=revision+1 WHERE default_shelf_id=OLD.id; END;`); e != nil {
 		return e
 	}
+	var deletionColumn int
+	if e = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM pragma_table_info('books') WHERE name='deleted_at'").Scan(&deletionColumn); e != nil {
+		return e
+	}
+	if deletionColumn == 0 {
+		if _, e = tx.ExecContext(ctx, "ALTER TABLE books ADD COLUMN deleted_at TEXT"); e != nil {
+			return e
+		}
+	}
+	if _, e = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS book_deleted_copies (
+        book_id INTEGER NOT NULL REFERENCES books(id), copy_id INTEGER PRIMARY KEY REFERENCES copies(id), archived_at TEXT NOT NULL
+    )`); e != nil {
+		return e
+	}
+	if e = validateColumns(ctx, tx, map[string]string{"books": "deleted_at", "book_deleted_copies": "book_id,copy_id,archived_at"}); e != nil {
+		return e
+	}
 	if e = validateFeatures(ctx, tx); e != nil {
 		return e
 	}

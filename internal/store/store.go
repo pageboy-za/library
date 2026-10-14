@@ -26,6 +26,8 @@ type Store struct {
 	mu sync.Mutex
 }
 type Book struct {
+	TotalCopyCount    int      `json:"total_copy_count"`
+	DeletedAt         *string  `json:"deleted_at"`
 	ID                int64    `json:"id"`
 	ISBN              string   `json:"isbn"`
 	Title             string   `json:"title"`
@@ -83,9 +85,16 @@ func Open(path string) (*Store, error) {
 }
 
 func (s *Store) Book(ctx context.Context, id int64) (Book, error) {
+	b, e := s.BookIncludingDeleted(ctx, id)
+	if e == nil && b.DeletedAt != nil {
+		return Book{}, ErrNotFound
+	}
+	return b, e
+}
+func (s *Store) BookIncludingDeleted(ctx context.Context, id int64) (Book, error) {
 	b := Book{Authors: []string{}, Copies: []Copy{}}
 	var a string
-	e := s.DB.QueryRowContext(ctx, "SELECT id,COALESCE(isbn,''),title,authors,publisher,publication_date,source_url,source_id,revision FROM books WHERE id=?", id).Scan(&b.ID, &b.ISBN, &b.Title, &a, &b.Publisher, &b.PublicationDate, &b.SourceURL, &b.SourceID, &b.Revision)
+	e := s.DB.QueryRowContext(ctx, "SELECT id,COALESCE(isbn,''),title,authors,publisher,publication_date,source_url,source_id,revision,deleted_at,(SELECT COUNT(*) FROM copies WHERE copies.book_id=books.id) FROM books WHERE id=?", id).Scan(&b.ID, &b.ISBN, &b.Title, &a, &b.Publisher, &b.PublicationDate, &b.SourceURL, &b.SourceID, &b.Revision, &b.DeletedAt, &b.TotalCopyCount)
 	if errors.Is(e, sql.ErrNoRows) {
 		return b, ErrNotFound
 	}
@@ -131,7 +140,7 @@ func (s *Store) ByISBN(ctx context.Context, isbn string) (Book, error) {
 	if e != nil {
 		return Book{}, e
 	}
-	return s.Book(ctx, id)
+	return s.BookIncludingDeleted(ctx, id)
 }
 func fold(s string) string { return strings.ToLower(norm.NFKC.String(s)) }
 func (s *Store) List(ctx context.Context, q string, shelf int64, availability string, page int) ([]Book, int, error) {
@@ -238,7 +247,7 @@ func (s *Store) Edit(ctx context.Context, id int64, in Input) (Book, error) {
 	// SQL CASE expressions inspect the previous ISBN in this one revision-checked
 	// write. Changing edition identity clears stale provider provenance; an omitted
 	// source on ordinary edits preserves it for compatibility with older clients.
-	r, e := s.DB.ExecContext(ctx, `UPDATE books SET isbn=NULLIF(?,''),title=?,authors=?,publisher=?,publication_date=?,source_url=CASE WHEN COALESCE(isbn,'')<>? THEN '' WHEN ?<>'' THEN ? ELSE source_url END,source_id=CASE WHEN COALESCE(isbn,'')<>? THEN '' WHEN ?<>'' THEN ? ELSE source_id END,revision=revision+1 WHERE id=? AND revision=?`, in.ISBN, in.Title, string(a), in.Publisher, in.PublicationDate, in.ISBN, in.SourceURL, in.SourceURL, in.ISBN, in.SourceID, in.SourceID, id, in.Revision)
+	r, e := s.DB.ExecContext(ctx, `UPDATE books SET isbn=NULLIF(?,''),title=?,authors=?,publisher=?,publication_date=?,source_url=CASE WHEN COALESCE(isbn,'')<>? THEN '' WHEN ?<>'' THEN ? ELSE source_url END,source_id=CASE WHEN COALESCE(isbn,'')<>? THEN '' WHEN ?<>'' THEN ? ELSE source_id END,revision=revision+1 WHERE id=? AND revision=? AND deleted_at IS NULL`, in.ISBN, in.Title, string(a), in.Publisher, in.PublicationDate, in.ISBN, in.SourceURL, in.SourceURL, in.ISBN, in.SourceID, in.SourceID, id, in.Revision)
 	if e != nil {
 		return Book{}, ErrConflict
 	}
@@ -272,6 +281,13 @@ func (s *Store) AddCopy(ctx context.Context, id int64, shelf *int64, key string)
 	if existing > 0 {
 		tx.Rollback()
 		return s.Book(ctx, id)
+	}
+	var present int
+	if e = tx.QueryRow("SELECT count(*) FROM books WHERE id=? AND deleted_at IS NULL", id).Scan(&present); e != nil {
+		return Book{}, e
+	}
+	if present != 1 {
+		return Book{}, ErrNotFound
 	}
 	var count int
 	if e = tx.QueryRow("SELECT count(*) FROM copies WHERE book_id=?", id).Scan(&count); e != nil {
@@ -352,7 +368,7 @@ func (s *Store) AddShelf(ctx context.Context, bookcase, name string) error {
 	return tx.Commit()
 }
 func (s *Store) MoveCopy(ctx context.Context, id int64, shelf *int64, revision int) error {
-	r, e := s.DB.ExecContext(ctx, "UPDATE copies SET shelf_id=?,revision=revision+1 WHERE id=? AND revision=?", shelf, id, revision)
+	r, e := s.DB.ExecContext(ctx, "UPDATE copies SET shelf_id=?,revision=revision+1 WHERE id=? AND revision=? AND EXISTS(SELECT 1 FROM books WHERE books.id=copies.book_id AND deleted_at IS NULL)", shelf, id, revision)
 	if e != nil {
 		return errors.New("Choose an existing shelf")
 	}

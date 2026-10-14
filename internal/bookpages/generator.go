@@ -165,7 +165,7 @@ func (g *Generator) pruneGenerations(now time.Time) error {
 }
 
 func (g *Generator) snapshot(ctx context.Context) ([]byte, error) {
-	rows, e := g.Store.DB.QueryContext(ctx, "SELECT b.id,b.isbn,b.title,b.authors,b.publisher,b.publication_date,COALESCE('/covers/'||c.local_path,''),b.revision,COALESCE(d.description,''),COALESCE(d.subjects,'[]') FROM books b LEFT JOIN cover_assets c ON c.id=b.selected_cover_asset_id LEFT JOIN book_discovery d ON d.book_id=b.id ORDER BY b.id")
+	rows, e := g.Store.DB.QueryContext(ctx, "SELECT b.id,b.isbn,b.title,b.authors,b.publisher,b.publication_date,COALESCE('/covers/'||c.local_path,''),b.revision,COALESCE(d.description,''),COALESCE(d.subjects,'[]') FROM books b LEFT JOIN cover_assets c ON c.id=b.selected_cover_asset_id LEFT JOIN book_discovery d ON d.book_id=b.id WHERE b.deleted_at IS NULL ORDER BY b.id")
 	if e != nil {
 		return nil, e
 	}

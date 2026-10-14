@@ -68,7 +68,7 @@ func (s *Store) searchIDs(ctx context.Context, q string, shelf int64, availabili
 		return nil, 0, err
 	}
 	defer tx.Rollback()
-	predicates := []string{"1=1"}
+	predicates := []string{"b.deleted_at IS NULL"}
 	args := []any{}
 	if q != "" {
 		normalized := fold(q)

@@ -63,7 +63,7 @@ func TestLegacyCoreUpgradePreservesDataAndRestarts(t *testing.T) {
 		var version, enabled int
 		s.DB.QueryRow("PRAGMA user_version").Scan(&version)
 		s.DB.QueryRow("PRAGMA foreign_keys").Scan(&enabled)
-		if version != 1 || enabled != 1 {
+		if version != supportedSchemaVersion || enabled != 1 {
 			t.Fatal("Version/enforcement wrong")
 		}
 		if _, e = s.DB.Exec("INSERT INTO copies(book_id) VALUES(999)"); e == nil {

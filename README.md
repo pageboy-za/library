@@ -107,3 +107,11 @@ Source release packaging and its checks are documented in [RELEASE_README.md](RE
 Use [RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) for the scanner, display and Pi checklist. The disposable [offline acceptance runner](OFFLINE_ACCEPTANCE.md) checks local operation and backup recovery without using household data.
 
 The Settings page checks saved backup folders when an optional `-backup-dir /absolute/durable/backups` is configured at startup. It reports verification and48hour freshness without scheduling or writing backups. See [BACKUP_README.md](BACKUP_README.md) for limits and setup. After changing application/ frontend source, restart the service to regenerate static pages; in-process regeneration is driven by metadata changes.
+
+### Delete and restore a book
+
+Open a book record and choose **Delete book**, then confirm the title and number of copies. Return any copies on loan first. Deletion hides the title from the catalogue, search and book pages, and archives its active copies. It keeps shelf assignments, covers and loan history.
+
+Use **Settings → Deleted books → Restore book** to recover the same record and the copies that this deletion archived. Copies archived before deletion stay archived. Scanning a deleted ISBN offers explicit restoration; it never silently adds a copy or creates a duplicate edition. There is no permanent erase action.
+
+The migration is additive and retains SQLite compatibility version 1. Backups include deletion state and recovery records. A deliberate rollback to older software does not support hiding deleted titles, so titles may reappear there; the archived copies remain unavailable for lending. If an owner explicitly adds another copy using an older version, restoration preserves it. Return to this version to manage deletion and restoration again.

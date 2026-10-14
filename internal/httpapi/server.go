@@ -126,6 +126,7 @@ func (s *Server) Handler() http.Handler {
 	(&locations.Service{Store: s.Store}).Register(m)
 	s.registerBackupStatus(m)
 	s.registerPreferences(m)
+	s.registerDeletion(m)
 	enrichment := s.Enrichment
 	if enrichment == nil {
 		enrichment = catalogue.NewEnrichment(s.Store)
@@ -230,7 +231,11 @@ func (s *Server) Handler() http.Handler {
 		}
 		b, e := s.Store.ByISBN(r.Context(), isbn)
 		if e == nil {
-			jsonResponse(w, 200, map[string]any{"existing": b, "isbn": isbn})
+			key := "existing"
+			if b.DeletedAt != nil {
+				key = "deleted"
+			}
+			jsonResponse(w, 200, map[string]any{key: b, "isbn": isbn})
 			return
 		}
 		if !errors.Is(e, store.ErrNotFound) {
@@ -394,6 +399,13 @@ func (s *Server) Handler() http.Handler {
 		}
 		http.Redirect(w, r, fmt.Sprintf("/books/%d/", bookID), http.StatusPermanentRedirect)
 	})
+	m.HandleFunc("GET /books/{id}/index.html", func(w http.ResponseWriter, r *http.Request) {
+		if _, e := s.Store.Book(r.Context(), id(r)); e != nil {
+			http.Error(w, "Book not found", 404)
+			return
+		}
+		http.Redirect(w, r, fmt.Sprintf("/books/%d/", id(r)), http.StatusSeeOther)
+	})
 	m.HandleFunc("GET /books/{id}/", func(w http.ResponseWriter, r *http.Request) {
 		if _, e := s.Store.Book(r.Context(), id(r)); e != nil {
 			http.Error(w, "Book not found", 404)
@@ -413,6 +425,16 @@ func (s *Server) Handler() http.Handler {
 	m.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		web := s.Web
 		if s.Pages != nil {
+			// The kiosk homepage embeds the catalogue snapshot. Never serve its
+			// previous generation after a saved deletion if rebuilding fails.
+			// Settings and other dynamic shells stay accessible for recovery.
+			if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+				if e := s.Pages.Ensure(r.Context()); e != nil {
+					w.Header().Set("Cache-Control", "no-store")
+					http.Error(w, "Library pages are being rebuilt. Please retry. Settings remains available at /settings/ to restore a book.", http.StatusServiceUnavailable)
+					return
+				}
+			}
 			web = s.Pages.Directory()
 		}
 		if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".html") {

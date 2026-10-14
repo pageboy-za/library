@@ -42,7 +42,7 @@ func (s DiscoveryService) Search(ctx context.Context, query string) ([]Discovery
 	if len(terms) == 0 {
 		return results, nil
 	}
-	rows, err := s.Store.DB.QueryContext(ctx, `SELECT id FROM books WHERE EXISTS(SELECT 1 FROM copies WHERE book_id=books.id AND archived_at IS NULL) ORDER BY id`)
+	rows, err := s.Store.DB.QueryContext(ctx, `SELECT id FROM books WHERE deleted_at IS NULL AND EXISTS(SELECT 1 FROM copies WHERE book_id=books.id AND archived_at IS NULL) ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}

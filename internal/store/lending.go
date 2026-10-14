@@ -142,7 +142,7 @@ func (s *Store) Checkout(ctx context.Context, copyID, borrowerID int64, due, key
 	defer tx.Rollback()
 	id, e := loanMutation(ctx, tx, key, []any{"checkout", copyID, borrowerID, due}, func() (int64, error) {
 		var count int
-		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM copies c,borrowers b WHERE c.id=? AND c.archived_at IS NULL AND b.id=? AND b.archived_at IS NULL`, copyID, borrowerID).Scan(&count); e != nil {
+		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM copies c,borrowers b WHERE c.id=? AND c.archived_at IS NULL AND EXISTS(SELECT 1 FROM books WHERE id=c.book_id AND deleted_at IS NULL) AND b.id=? AND b.archived_at IS NULL`, copyID, borrowerID).Scan(&count); e != nil {
 			return 0, e
 		}
 		if count != 1 {
