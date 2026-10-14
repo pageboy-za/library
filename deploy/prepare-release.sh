@@ -20,5 +20,7 @@ p=pathlib.Path(sys.argv[1]);name='node-v24.22.0-linux-arm64.tar.xz'
 expected=next(x.split()[0] for x in (p/'node-checksums.txt').read_text().splitlines() if x.endswith(name))
 assert hashlib.sha256((p/'node.tar.xz').read_bytes()).hexdigest()==expected
 PY
-tar -xJf "$library_output/node.tar.xz" --strip-components=1 -C "$library_output/runtime-root/runtime"
+# Astro's installed CLI needs Node itself, not npm, headers or the SDK.
+# Keep the upstream licence beside the checksum-verified runtime executable.
+tar -xJf "$library_output/node.tar.xz" --strip-components=1 -C "$library_output/runtime-root/runtime" node-v24.22.0-linux-arm64/bin/node node-v24.22.0-linux-arm64/LICENSE
 python3 deploy/build-release.py --root "$library_output/runtime-root" --out "$library_output/assets" --version "$library_version" --commit "$library_commit"
