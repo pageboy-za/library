@@ -1,0 +1,66 @@
+name: Approved Pi release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, for example v0.1.0'
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: approved-pi-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.27.2'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.0'
+      - name: Validate version and source
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python3 -c 'import os,re; assert re.fullmatch(r"v\d+\.\d+\.\d+",os.environ["RELEASE_VERSION"])'
+          go test ./...
+          go vet ./...
+          cd web
+          npm ci --no-audit --no-fund
+          npm run check
+          npm run build
+      - name: Check secrets and updater rejection cases
+        run: |
+          set -eu
+          curl --fail --location --silent --show-error https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_arm64.tar.gz -o "$RUNNER_TEMP/gitleaks.tar.gz"
+          printf 'e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080  %s\n' "$RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner
+          go build -o "$RUNNER_TEMP/library-release" ./cmd/library-release
+          RELEASE_VERIFY_BIN="$RUNNER_TEMP/library-release" python3 deploy/update-test.py
+      - name: Build and sign the runtime
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_KEY: ${{ secrets.LIBRARY_RELEASE_SIGNING_KEY }}
+        run: |
+          set -eu
+          test -n "$RELEASE_KEY"
+          sh deploy/prepare-release.sh "$RELEASE_VERSION" "$RUNNER_TEMP/release"
+          go build -o "$RUNNER_TEMP/library-release" ./cmd/library-release
+          umask 077
+          printf '%s' "$RELEASE_KEY" > "$RUNNER_TEMP/signing.pem"
+          "$RUNNER_TEMP/library-release" -action sign -key "$RUNNER_TEMP/signing.pem" -manifest "$RUNNER_TEMP/release/assets/manifest.json" -signature "$RUNNER_TEMP/release/assets/manifest.sig"
+          rm "$RUNNER_TEMP/signing.pem"
+      - name: Publish approved release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "$RELEASE_VERSION" "$RUNNER_TEMP/release/assets/manifest.json" "$RUNNER_TEMP/release/assets/manifest.sig" "$RUNNER_TEMP/release/assets/bundle.tar.gz" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$RELEASE_VERSION" --notes "Approved ARM64 library application release. Your catalogue stays on the Pi."

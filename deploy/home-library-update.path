@@ -1,0 +1,9 @@
+[Unit]
+Description=Home Library approved update request watcher
+
+[Path]
+PathExists=/var/lib/library-updater/requests/ready.json
+Unit=home-library-update.service
+
+[Install]
+WantedBy=multi-user.target

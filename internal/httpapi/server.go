@@ -22,10 +22,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 type Server struct {
+	Version         string
+	Commit          string
+	MaintenancePath string
+	ActiveWrites    atomic.Int64
 	BackupDirectory string
 	Store           *store.Store
 	Metadata        *metadata.Client
@@ -184,6 +189,9 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		jsonResponse(w, 200, map[string]string{"status": "ready"})
+	})
+	m.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
+		jsonResponse(w, 200, map[string]any{"version": s.Version, "commit": s.Commit, "active_writes": s.ActiveWrites.Load()})
 	})
 	m.HandleFunc("GET /api/books", func(w http.ResponseWriter, r *http.Request) {
 		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
@@ -420,6 +428,19 @@ func (s *Server) Handler() http.Handler {
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "same-origin")
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			s.ActiveWrites.Add(1)
+			defer s.ActiveWrites.Add(-1)
+			if s.MaintenancePath != "" {
+				if _, err := os.Stat(s.MaintenancePath); err == nil {
+					jsonResponse(w, 503, map[string]string{"error": "The library is updating. Your changes have not been saved; please retry when it is ready."})
+					return
+				} else if !os.IsNotExist(err) {
+					jsonResponse(w, 503, map[string]string{"error": "The library cannot confirm update status. Please retry later."})
+					return
+				}
+			}
+		}
 		m.ServeHTTP(w, r)
 	})
 }

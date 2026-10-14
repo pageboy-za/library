@@ -17,11 +17,15 @@ import (
 	"time"
 )
 
+var version = "development"
+var commit = "unknown"
+
 func main() {
 	addr := flag.String("listen", "127.0.0.1:8080", "loopback address")
 	data := flag.String("data", "data", "persistent data directory")
 	web := flag.String("web", "web", "Astro source directory with installed dependencies")
 	backupDirectory := flag.String("backup-dir", "", "optional backup parent directory for read-only health checks")
+	maintenance := flag.String("maintenance-file", "", "read-only updater maintenance marker")
 	flag.Parse()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -52,7 +56,8 @@ func main() {
 		}
 		log.Printf("Using previous static output; regeneration needs repair: %v", e)
 	}
-	srv := &http.Server{Addr: *addr, Handler: (&httpapi.Server{Store: s, Metadata: metadata.NewWithCache(filepath.Join(*data, "metadata")), Web: *web, BackupDirectory: *backupDirectory, Pages: pages, Covers: coverService}).Handler(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
+	apiServer := &httpapi.Server{Store: s, Metadata: metadata.NewWithCache(filepath.Join(*data, "metadata")), Web: *web, BackupDirectory: *backupDirectory, Pages: pages, Covers: coverService, Version: version, Commit: commit, MaintenancePath: *maintenance}
+	srv := &http.Server{Addr: *addr, Handler: apiServer.Handler(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	go func() {
 		<-ctx.Done()
 		c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -62,9 +67,16 @@ func main() {
 	// Missing-cover backfill never delays readiness. Bound the whole startup pass
 	// so offline catalogues do not trigger a long sequence of remote timeouts.
 	go func() {
+		apiServer.ActiveWrites.Add(1)
+		defer apiServer.ActiveWrites.Add(-1)
 		c, cancel := context.WithTimeout(ctx, 45*time.Second)
 		defer cancel()
 		for page := 1; ; page++ {
+			if *maintenance != "" {
+				if _, err := os.Stat(*maintenance); err == nil {
+					return
+				}
+			}
 			books, _, err := s.List(c, "", 0, "", page)
 			if err != nil || len(books) == 0 {
 				return

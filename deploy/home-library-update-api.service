@@ -1,0 +1,21 @@
+[Unit]
+Description=Home Library owner update controller
+After=network-online.target
+
+[Service]
+User=library-updater
+Group=library-gateway
+ExecStart=/usr/bin/python3 /usr/local/libexec/home-library-updater/update-api.py
+RuntimeDirectory=home-library-updater
+RuntimeDirectoryMode=0750
+Environment=PYTHONDONTWRITEBYTECODE=1
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/library-updater/downloads /var/lib/library-updater/requests /run/home-library-updater
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

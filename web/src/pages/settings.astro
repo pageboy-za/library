@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/LibraryLayout.astro';
 import BackupStatus from '../components/library/BackupStatus.svelte';
+import Updates from '../components/library/Updates.svelte';
 ---
-<Layout title="Settings" eyebrow="YOUR LIBRARY" description="Check that a safe copy of your library is available."><BackupStatus client:load/></Layout>
+<Layout title="Settings" eyebrow="YOUR LIBRARY" description="Check backups and install approved application updates."><BackupStatus client:load/><Updates client:load/></Layout>

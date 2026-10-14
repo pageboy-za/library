@@ -14,6 +14,14 @@ https://library.local {
 		basic_auth {
 			{$LIBRARY_LOGIN_USER} {$LIBRARY_LOGIN_HASH}
 		}
+		handle /api/updates/* {
+			reverse_proxy unix//run/home-library-updater/http.sock {
+				header_up Host 127.0.0.1:8090
+				header_up Origin http://127.0.0.1:8090
+				header_up X-Library-Owner {http.auth.user.id}
+				header_up -Authorization
+			}
+		}
 		reverse_proxy 127.0.0.1:8080 {
 			# Validate the browser's Origin above before translating to loopback.
 			header_up Host 127.0.0.1:8080

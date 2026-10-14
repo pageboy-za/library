@@ -1,0 +1,13 @@
+[Unit]
+Description=Home Library verified release activation and recovery
+After=home-library.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/home-library-updater/update-activate.py
+Environment=PYTHONDONTWRITEBYTECODE=1
+TimeoutStartSec=1200
+UMask=0022
+
+[Install]
+WantedBy=multi-user.target
