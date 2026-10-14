@@ -1,0 +1,37 @@
+{
+	admin off
+	skip_install_trust
+}
+
+https://library.local {
+	tls internal
+	@foreignOrigin {
+		header Origin *
+		not header Origin https://library.local
+	}
+	route {
+		respond @foreignOrigin "Same-origin access required" 403
+		basic_auth {
+			{$LIBRARY_LOGIN_USER} {$LIBRARY_LOGIN_HASH}
+		}
+		reverse_proxy 127.0.0.1:8080 {
+			# Validate the browser's Origin above before translating to loopback.
+			header_up Host 127.0.0.1:8080
+			header_up Origin http://127.0.0.1:8080
+			# The application does not need the gateway login credentials.
+			header_up -Authorization
+		}
+	}
+}
+
+# This HTTP endpoint serves only the public trust certificate.
+http://library.local:8081 {
+	handle /library-root.cer {
+		root * /var/lib/library-gateway/public
+		header Content-Type application/x-x509-ca-cert
+		file_server
+	}
+	handle {
+		respond "Use https://library.local for the library." 404
+	}
+}

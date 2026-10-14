@@ -92,6 +92,10 @@ See [the plan](LIBRARY_PLAN.md) and [release acceptance checks](RELEASE_ACCEPTAN
 
 Raspberry Pi installation templates and build instructions are in [PI_README.md](PI_README.md). They cross-compile for ARM64 but still require actual-device validation.
 
+For encrypted household-network access and an iPad with a Bluetooth barcode
+scanner, see [LAN_README.md](LAN_README.md). The gateway requires a login and
+device certificate trust; the application itself remains on loopback.
+
 ## Foundation acceptance — 10 October
 
 Startup validates the supported core schema, keys and required constraints before applying additive migrations in one transaction. Future or incompatible databases are refused; failed upgrades roll back. Take a verified backup before deploying schema changes.
