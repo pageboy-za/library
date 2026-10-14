@@ -1,5 +1,5 @@
 """Shared release verification. This installed module is root-owned."""
-import hashlib, json, os, pathlib, posixpath, re, shutil, stat, subprocess, tarfile, tempfile
+import ctypes, hashlib, json, os, pathlib, posixpath, re, shutil, stat, subprocess, sys, tarfile, tempfile
 
 VERSION=re.compile(r'v\d+\.\d+\.\d+\Z')
 MAX_BUNDLE=512<<20
@@ -63,6 +63,18 @@ def check_existing(destination,manifest):
     while chunk:=source.read(1<<20):digest.update(chunk)
    if digest.hexdigest()!=f['sha256']:raise ValueError('Existing release checksum mismatch')
 
+def sync_release(destination):
+ # On SD cards, one filesystem durability barrier avoids thousands of costly
+ # per-file journal commits. It completes before the release can be activated.
+ fd=os.open(destination,os.O_RDONLY|os.O_DIRECTORY)
+ try:
+  if sys.platform.startswith('linux'):
+   libc=ctypes.CDLL(None,use_errno=True)
+   if libc.syncfs(fd)!=0:
+    error=ctypes.get_errno();raise OSError(error,os.strerror(error))
+  else:os.fsync(fd)
+ finally:os.close(fd)
+
 def extract(bundle,manifest,destination):
  """Write only signed regular bytes, then contained leaf links. No tar.extract."""
  destination=pathlib.Path(destination)
@@ -84,11 +96,13 @@ def extract(bundle,manifest,destination):
      digest=hashlib.sha256()
      with archive.extractfile(member) as src,out.open('xb') as dst:
       while b:=src.read(1<<20):digest.update(b);dst.write(b)
-      dst.flush();os.fsync(dst.fileno())
+      dst.flush()
+      if not sys.platform.startswith('linux'):os.fsync(dst.fileno())
      if digest.hexdigest()!=f['sha256']:raise ValueError('File checksum rejected')
      out.chmod(f['mode'])
   if seen!=set(expected):raise ValueError('Missing runtime files')
   for out,target in symlinks:out.symlink_to(target)
+  sync_release(destination)
  except Exception:
   shutil.rmtree(destination);raise
 
@@ -98,5 +112,10 @@ def safe_copy(source,destination,limit):
   info=os.fstat(fd)
   if not stat.S_ISREG(info.st_mode) or info.st_size>limit:raise ValueError('Invalid staged input')
   with os.fdopen(fd,'rb',closefd=False) as src,open(destination,'xb') as dst:
-   shutil.copyfileobj(src,dst,1<<20);dst.flush();os.fsync(dst.fileno())
+   total=0
+   while chunk:=src.read(1<<20):
+    total+=len(chunk)
+    if total>limit:raise ValueError('Staged input grew beyond its limit')
+    dst.write(chunk)
+   dst.flush();os.fsync(dst.fileno())
  finally:os.close(fd)

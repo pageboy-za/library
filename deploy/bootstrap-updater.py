@@ -6,7 +6,19 @@ from updates_common import atomic_json, verify, extract
 assert os.geteuid()==0,'Run with sudo'
 stage=pathlib.Path(__file__).resolve().parent
 root=pathlib.Path('/var/lib/library-updater');state=root/'state';releases=pathlib.Path('/opt/home-library/releases')
-assert not root.exists(),'Updater already installed; refusing to overwrite it'
+if root.exists():
+ # Resume only an interrupted unpack before any live configuration changed.
+ assert not pathlib.Path('/opt/home-library/current').exists(), 'Updater already installed'
+ assert not pathlib.Path('/etc/systemd/system/home-library.service.d/updates.conf').exists(), 'Updater configuration already installed'
+ assert not (state/'original-dropins').exists() and not (state/'maintenance.json').exists() and not (state/'status.json').exists(), 'Bootstrap already changed live state'
+ assert not root.is_symlink() and root.stat().st_uid==0, 'Invalid bootstrap directory'
+ for name in ['requests','downloads']:
+  assert not (root/name).is_symlink() and not any((root/name).iterdir()), 'Bootstrap requests already exist'
+ partial=releases/'v0.1.0'
+ if partial.exists():
+  assert not partial.is_symlink() and partial.stat().st_uid==0, 'Invalid partial release'
+  shutil.rmtree(partial)
+ print('Resuming interrupted unpack; the original application is unchanged.',flush=True)
 subprocess.run(['sha256sum','-c','bootstrap-SHA256SUMS'],cwd=stage,check=True)
 manifest=verify(stage/'manifest.json',stage/'manifest.sig',stage/'public.pem',stage/'release-verify')
 assert manifest['version']=='v0.1.0'
