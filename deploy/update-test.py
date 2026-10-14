@@ -39,6 +39,23 @@ with tempfile.TemporaryDirectory(prefix='library-release-security-') as director
  assert not (root/'escape').exists()
  # Recovery operates on protected version paths and never restores catalogue bytes.
  activation=SourceFileLoader('activation_test',str(pathlib.Path(__file__).with_name('update-activate.py'))).load_module()
+ # API readiness alone must not accept fallback HTML from another release.
+ real_client=activation.CLIENT
+ class Response(io.BytesIO):pass
+ def response(url,timeout=4):
+  if url.endswith('/api/version'):return Response(b'{"version":"v9.9.9"}')
+  if url.endswith('/healthz'):return Response(b'{"status":"ready"}')
+  if url.endswith('/api/books'):return Response(b'{"books":[]}')
+  if url.endswith('/settings/'):return Response(b'Application updates')
+  return Response(b'kiosk-search<meta name="library-app-version" content="v9.9.9">')
+ activation.CLIENT=types.SimpleNamespace(open=response)
+ assert activation.ready('v9.9.9',timeout=.01)
+ def stale(url,timeout=4):
+  if url.endswith(':8080/'):return Response(b'kiosk-search<meta name="library-app-version" content="v1.0.0">')
+  return response(url,timeout)
+ activation.CLIENT=types.SimpleNamespace(open=stale)
+ assert not activation.ready('v9.9.9',timeout=.01)
+ activation.CLIENT=real_client
  activation.ROOT=root/'updater';activation.STATE=activation.ROOT/'state';activation.STATE.mkdir(parents=True)
  activation.RELEASES=root/'releases';previous=activation.RELEASES/'v1.0.0';previous.mkdir(parents=True)
  activation.CURRENT=root/'current';activation.CURRENT.symlink_to(previous)

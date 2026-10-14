@@ -27,6 +27,9 @@ func main() {
 	backupDirectory := flag.String("backup-dir", "", "optional backup parent directory for read-only health checks")
 	maintenance := flag.String("maintenance-file", "", "read-only updater maintenance marker")
 	flag.Parse()
+	if err := os.Setenv("LIBRARY_APP_VERSION", version); err != nil {
+		log.Fatal(err)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if e := httpapi.Listen(*addr); e != nil {

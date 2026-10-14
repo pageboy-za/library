@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fixed root activation job. It never runs release content as root."""
 import fcntl, json, os, pathlib, pwd, shutil, subprocess, tempfile, time, urllib.request, uuid
+from html.parser import HTMLParser
 from updates_common import VERSION, MAX_BUNDLE, atomic_json, read_json, verify, extract, safe_copy, check_bundle, check_existing
 
 ROOT=pathlib.Path('/var/lib/library-updater');STATE=ROOT/'state'
@@ -14,6 +15,12 @@ def as_app(*args):subprocess.run(['/usr/sbin/runuser','-u','home-library','--',*
 def switch(path):
  tmp=CURRENT.with_name('next');tmp.unlink(missing_ok=True);tmp.symlink_to(path);os.replace(tmp,CURRENT)
  fd=os.open(CURRENT.parent,os.O_DIRECTORY);os.fsync(fd);os.close(fd)
+class PageVersion(HTMLParser):
+ def __init__(self):super().__init__();self.version=None
+ def handle_starttag(self,tag,attrs):
+  attributes=dict(attrs)
+  if tag=='meta' and attributes.get('name')=='library-app-version':self.version=attributes.get('content')
+
 def ready(version,timeout=180,port=8080):
  deadline=time.monotonic()+timeout
  while time.monotonic()<deadline:
@@ -22,7 +29,10 @@ def ready(version,timeout=180,port=8080):
    with CLIENT.open(f'http://127.0.0.1:{port}/healthz',timeout=4) as r:h=json.load(r)
    with CLIENT.open(f'http://127.0.0.1:{port}/',timeout=4) as r:page=r.read(1<<20)
    with CLIENT.open(f'http://127.0.0.1:{port}/api/books',timeout=4) as r:json.load(r)
-   if v.get('version')==version and h.get('status')=='ready' and b'kiosk-search' in page:return True
+   with CLIENT.open(f'http://127.0.0.1:{port}/settings/',timeout=4) as r:settings=r.read(1<<20)
+   parser=PageVersion();parser.feed(page.decode('utf-8'))
+   current_pages=(version=='v0.1.0' or parser.version==version)
+   if v.get('version')==version and h.get('status')=='ready' and b'kiosk-search' in page and b'Application updates' in settings and current_pages:return True
   except Exception:pass
   time.sleep(2)
  return False
@@ -45,13 +55,16 @@ def activate():
  if not pending.exists():
   if journal.get('phase') in ['preparing','backing_up','restarting','recovering']:recover(journal)
   return
- request=read_json(pending);pending.unlink()
+ request=read_json(pending)
  job=str(uuid.UUID(request['job']));version=request['version']
  if not VERSION.fullmatch(version):raise ValueError('Invalid version')
- if journal.get('job')==job and journal.get('phase') in ['ready','recovered','failed']:return
+ if journal.get('job')==job and journal.get('phase') in ['ready','recovered','failed']:
+  pending.unlink();return
  previous=CURRENT.resolve();assert previous.parent==RELEASES and VERSION.fullmatch(previous.name)
  journal=dict(job=job,version=version,previous=str(previous),phase='preparing')
  atomic_json(STATE/'status.json',journal)
+ # Consume only after the recovery journal is durable.
+ pending.unlink()
  candidate=RELEASES/version
  created=False
  try:
@@ -72,11 +85,13 @@ def activate():
    target=cache/name
    if target.is_symlink():raise ValueError('Invalid cache directory')
    target.mkdir(mode=0o700,exist_ok=True);target.chmod(0o700);shutil.chown(target,user='home-library',group='home-library')
-  for name,link in [('types',candidate/'web/.astro'),('vite',candidate/'web/node_modules/.vite')]:
+  types=DATA/'build-cache'/version/'types'
+  as_app('/usr/bin/mkdir','-p','-m','700',types)
+  for target,link in [(types,candidate/'web/.astro'),(cache/'vite',candidate/'web/node_modules/.vite')]:
    if link.is_symlink():
-    if os.readlink(link)!=str(cache/name):raise ValueError('Invalid cache link')
+    if os.readlink(link)!=str(target):raise ValueError('Invalid cache link')
    elif link.exists():raise ValueError('Cache path is not a managed link')
-   else:link.symlink_to(cache/name)
+   else:link.symlink_to(target)
   smoke=cache/'smoke';smoke.mkdir(mode=0o700);shutil.chown(smoke,user='library-smoke',group='home-library')
   # Use protected hard-linked source with independent, private test caches.
   # The smoke account cannot traverse the live catalogue or its cache contents.

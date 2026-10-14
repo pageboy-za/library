@@ -7,7 +7,8 @@ updates do not require SSH, sudo, or a GitHub credential when releases are publi
 
 The update service checks a publisher signature and signed file hashes, tests the
 candidate against disposable data, pauses writes, creates and verifies a catalogue
-backup, and switches application versions. Books, copies, shelves, borrowers,
+backup, and switches application versions. It checks that the generated pages identify the
+expected version, so old fallback pages cannot count as a successful update. Books, copies, shelves, borrowers,
 loans, covers, web-login configuration and TLS keys remain on the Pi.
 
 Compatible previous versions can be selected from the same release list. Failed
