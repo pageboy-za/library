@@ -11,6 +11,7 @@ import (
 	"home-library/internal/library"
 	"home-library/internal/locations"
 	"home-library/internal/metadata"
+	"home-library/internal/metrics"
 	"home-library/internal/store"
 	"io"
 	"log"
@@ -48,8 +49,8 @@ type Server struct {
 func (s *Server) publish(w http.ResponseWriter, r *http.Request, b store.Book) {
 	if s.Covers != nil && b.CoverURL == "" && b.ISBN != "" {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
-		if _, e := s.Covers.Fetch(ctx, b.ID); e != nil {
-			log.Printf("Cover lookup for book %d: %v", b.ID, e)
+		if e := metrics.Measure(r.Context(), "cover", func() error { _, err := s.Covers.Fetch(ctx, b.ID); return err }); e != nil {
+			log.Printf("Cover lookup for book %d failed (%T)", b.ID, e)
 		}
 		cancel()
 		if fresh, e := s.Store.Book(r.Context(), b.ID); e == nil {
@@ -57,14 +58,20 @@ func (s *Server) publish(w http.ResponseWriter, r *http.Request, b store.Book) {
 		}
 	}
 	if s.Pages != nil {
-		if e := s.Pages.Ensure(context.WithoutCancel(r.Context())); e != nil {
-			log.Printf("Publish book %d: %v", b.ID, e)
+		if e := metrics.Measure(r.Context(), "publication", func() error { return s.Pages.Ensure(context.WithoutCancel(r.Context())) }); e != nil {
+			log.Printf("Publish book %d failed (%T)", b.ID, e)
+			if trace := metrics.Get(r.Context()); trace != nil {
+				w.Header().Set("Server-Timing", trace.Header())
+			}
 			jsonResponse(w, 202, struct {
 				store.Book
 				Warning string `json:"page_warning"`
 			}{b, "Book saved, but its page could not be updated. Retry saving or open the book to retry; no extra copy will be created."})
 			return
 		}
+	}
+	if trace := metrics.Get(r.Context()); trace != nil {
+		w.Header().Set("Server-Timing", trace.Header())
 	}
 	jsonResponse(w, 200, b)
 }
@@ -118,6 +125,7 @@ func (s *Server) Handler() http.Handler {
 	(&lending.Service{Store: s.Store}).Register(m)
 	(&locations.Service{Store: s.Store}).Register(m)
 	s.registerBackupStatus(m)
+	s.registerPreferences(m)
 	enrichment := s.Enrichment
 	if enrichment == nil {
 		enrichment = catalogue.NewEnrichment(s.Store)
@@ -286,7 +294,8 @@ func (s *Server) Handler() http.Handler {
 			}
 			in.ISBN = v
 		}
-		b, e := s.Store.Save(r.Context(), in)
+		var b store.Book
+		e := metrics.Measure(r.Context(), "database", func() error { var err error; b, err = s.Store.Save(r.Context(), in); return err })
 		if e != nil {
 			failure(w, e)
 			return
@@ -307,7 +316,8 @@ func (s *Server) Handler() http.Handler {
 			}
 			in.ISBN = v
 		}
-		b, e := s.Store.Edit(r.Context(), id(r), in)
+		var b store.Book
+		e := metrics.Measure(r.Context(), "database", func() error { var err error; b, err = s.Store.Edit(r.Context(), id(r), in); return err })
 		if e != nil {
 			failure(w, e)
 			return
@@ -428,6 +438,12 @@ func (s *Server) Handler() http.Handler {
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "same-origin")
+		if (r.Method == http.MethodPost || r.Method == http.MethodPatch) && strings.HasPrefix(r.URL.Path, "/api/books") {
+			ctx, trace := metrics.Start(r.Context())
+			r = r.WithContext(ctx)
+			w.Header().Set("X-Library-Request-ID", trace.ID)
+			defer trace.Finish()
+		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			s.ActiveWrites.Add(1)
 			defer s.ActiveWrites.Add(-1)

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"home-library/internal/metrics"
 	"home-library/internal/store"
 	"io/fs"
 	"log"
@@ -203,9 +204,13 @@ func (g *Generator) snapshot(ctx context.Context) ([]byte, error) {
 // Ensure serializes builds, snapshots current committed metadata, and only publishes
 // complete output. Copy/shelf/loan changes do not change the snapshot or trigger builds.
 func (g *Generator) Ensure(ctx context.Context) error {
+	waitStarted := time.Now()
 	g.mu.Lock()
+	metrics.Record(ctx, "publication_wait", time.Since(waitStarted), nil)
 	defer g.mu.Unlock()
+	snapshotStarted := time.Now()
 	data, e := g.snapshot(ctx)
+	metrics.Record(ctx, "snapshot", time.Since(snapshotStarted), e)
 	if e != nil {
 		return e
 	}
@@ -247,7 +252,7 @@ func (g *Generator) Ensure(ctx context.Context) error {
 	if run == nil {
 		run = g.build
 	}
-	if e = run(buildCtx, snapshot, output); e != nil {
+	if e = metrics.Measure(ctx, "astro_build", func() error { return run(buildCtx, snapshot, output) }); e != nil {
 		return fmt.Errorf("generate Astro book pages: %w", e)
 	}
 	if e = buildCtx.Err(); e != nil {
@@ -274,7 +279,7 @@ func (g *Generator) Ensure(ctx context.Context) error {
 	if e = os.Symlink(output, link); e != nil {
 		return e
 	}
-	if e = os.Rename(link, g.Directory()); e != nil {
+	if e = metrics.Measure(ctx, "atomic_publish", func() error { return os.Rename(link, g.Directory()) }); e != nil {
 		os.Remove(link)
 		return e
 	}

@@ -87,7 +87,7 @@ func main() {
 				}
 				if b.CoverURL == "" && b.ISBN != "" {
 					if _, err = coverService.Fetch(c, b.ID); err != nil {
-						log.Printf("Cover lookup for %s: %v", b.Title, err)
+						log.Printf("Cover lookup for book %d failed: %T", b.ID, err)
 						continue
 					}
 					if err = pages.Ensure(c); err != nil {

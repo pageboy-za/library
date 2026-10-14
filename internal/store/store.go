@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"golang.org/x/text/unicode/norm"
+	"home-library/internal/metrics"
 	_ "modernc.org/sqlite"
 	"strings"
 	"sync"
@@ -216,7 +217,7 @@ func (s *Store) Save(ctx context.Context, in Input) (Book, error) {
 	if _, e = tx.Exec("INSERT INTO mutation_requests VALUES(?,?,?)", in.RequestKey, hash, id); e != nil {
 		return Book{}, e
 	}
-	if e = tx.Commit(); e != nil {
+	if e = metrics.Measure(ctx, "database_commit", tx.Commit); e != nil {
 		return Book{}, e
 	}
 	return s.Book(ctx, id)
@@ -282,7 +283,7 @@ func (s *Store) AddCopy(ctx context.Context, id int64, shelf *int64, key string)
 	if _, e = tx.Exec("INSERT INTO mutation_requests VALUES(?,?,?)", key, hash, id); e != nil {
 		return Book{}, e
 	}
-	if e = tx.Commit(); e != nil {
+	if e = metrics.Measure(ctx, "database_commit", tx.Commit); e != nil {
 		return Book{}, e
 	}
 	return s.Book(ctx, id)

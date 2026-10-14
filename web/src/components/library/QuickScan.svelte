@@ -1,6 +1,6 @@
 <script lang="ts">
 import {onMount} from 'svelte';let isbn='';let input:HTMLInputElement;
-onMount(()=>input?.focus());
+onMount(()=>{input?.focus();const restore=(event:Event)=>{const active=document.activeElement;const source=(event as CustomEvent<{source?:HTMLElement}>).detail?.source;if(active instanceof HTMLElement&&active!==source&&active!==input&&active.matches('input,textarea,select'))return;if(active===input&&isbn.trim())return;isbn='';input?.focus({preventScroll:true});input?.select();};window.addEventListener('library-shelf-saved',restore);return()=>window.removeEventListener('library-shelf-saved',restore);});
 function open(event:SubmitEvent){event.preventDefault();const scanned=isbn.trim();if(scanned)window.location.href=`/scan/?isbn=${encodeURIComponent(scanned)}`;else input?.focus();}
 </script>
 <form class="quick-scan" onsubmit={open}><input bind:this={input} bind:value={isbn} aria-label="Scan next ISBN" placeholder="Scan next ISBN" maxlength="64" inputmode="numeric" autocomplete="off"/><button type="submit" aria-label="Open scanned book">→</button></form>

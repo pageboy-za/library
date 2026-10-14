@@ -75,6 +75,15 @@ func prepareDatabase(ctx context.Context, db *sql.DB) error {
 	if e = ensureSearchSchema(ctx, tx); e != nil {
 		return fmt.Errorf("Initialize derived catalogue search: %w", e)
 	}
+	if _, e = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS library_preferences (
+		id INTEGER PRIMARY KEY CHECK(id=1),
+		default_shelf_id INTEGER REFERENCES shelves(id) ON DELETE SET NULL,
+		revision INTEGER NOT NULL DEFAULT 1
+	); INSERT OR IGNORE INTO library_preferences(id) VALUES(1);
+	CREATE TRIGGER IF NOT EXISTS preferences_shelf_removed BEFORE DELETE ON shelves
+	BEGIN UPDATE library_preferences SET default_shelf_id=NULL,revision=revision+1 WHERE default_shelf_id=OLD.id; END;`); e != nil {
+		return e
+	}
 	if e = validateFeatures(ctx, tx); e != nil {
 		return e
 	}

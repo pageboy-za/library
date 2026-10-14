@@ -42,7 +42,12 @@ explicit = required + ["README.md", "LIBRARY_PLAN.md", "MULTIFORMAT_PLAN.md",
     "OFFLINE_ACCEPTANCE.md", "RELEASE_ACCEPTANCE.md", "DESIGN.md", "DESIGN_REVIEW.md", "DESIGN_DIRECTIONS.md",
     "web/NEWSREADER_LICENSE", "web/INTER_LICENSE", "SECURITY.md", "LAN_README.md",
     "deploy/Caddyfile.lan.example", "deploy/home-library-gateway.service",
-    "deploy/install-lan.sh", "deploy/gateway-test.py"]
+    "deploy/install-lan.sh", "deploy/gateway-test.py", "REMOTE_UPDATES_PLAN.md", "UPDATES_README.md",
+    "deploy/build-release.py", "deploy/prepare-release.sh", "deploy/updates_common.py",
+    "deploy/update-api.py", "deploy/update-activate.py", "deploy/update-test.py",
+    "deploy/bootstrap-updater.py", "deploy/start-managed-library.sh",
+    "deploy/home-library-update-api.service", "deploy/home-library-update.service",
+    "deploy/home-library-update.path"]
 
 def add(relative):
     path = source / relative
