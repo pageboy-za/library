@@ -56,8 +56,9 @@ func (c *Client) fetch(ctx context.Context, isbn string) (store.Input, error) {
 		return store.Input{}, errors.New("Book lookup unavailable. Enter the details manually")
 	}
 	var data map[string]struct {
-		Title   string `json:"title"`
-		Authors []struct {
+		Title    string `json:"title"`
+		Subtitle string `json:"subtitle"`
+		Authors  []struct {
 			Name string `json:"name"`
 		} `json:"authors"`
 		Publishers []struct {
@@ -83,7 +84,11 @@ func (c *Client) fetch(ctx context.Context, isbn string) (store.Input, error) {
 	if !ok {
 		return store.Input{}, errors.New("No matching edition found. Enter the details manually")
 	}
-	in := store.Input{ISBN: isbn, Title: v.Title, Authors: []string{}, PublicationDate: v.Date, SourceURL: v.URL}
+	subtitle := strings.TrimSpace(v.Subtitle)
+	if len(subtitle) > 1000 {
+		subtitle = ""
+	}
+	in := store.Input{ISBN: isbn, Title: v.Title, Subtitle: &subtitle, Authors: []string{}, PublicationDate: v.Date, SourceURL: v.URL}
 	for _, a := range v.Authors {
 		in.Authors = append(in.Authors, a.Name)
 	}

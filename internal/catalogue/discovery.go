@@ -75,7 +75,7 @@ func (s DiscoveryService) Search(ctx context.Context, query string) ([]Discovery
 		fields := []struct {
 			name, value string
 			weight      int
-		}{{"title", book.Title, 4}, {"author", strings.Join(book.Authors, " "), 3}, {"subject", strings.Join(d.Subjects, " "), 4}, {"your tag", strings.Join(d.Tags, " "), 5}, {"description", d.Description, 2}, {"your note", d.Notes, 2}}
+		}{{"title", book.Title, 4}, {"subtitle", book.Subtitle, 4}, {"author", strings.Join(book.Authors, " "), 3}, {"subject", strings.Join(d.Subjects, " "), 4}, {"your tag", strings.Join(d.Tags, " "), 5}, {"description", d.Description, 2}, {"your note", d.Notes, 2}}
 		result := DiscoveryResult{Book: book, Reasons: []string{}}
 		for _, field := range fields {
 			found := []string{}

@@ -15,7 +15,8 @@ func TestDeletedBookBackupCanRestoreOriginalCopies(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer s.DB.Close()
-	b, e := s.Save(ctx, store.Input{Title: "Deleted backup fixture", RequestKey: "backup-delete-save"})
+	subtitle := "Retained subtitle"
+	b, e := s.Save(ctx, store.Input{Title: "Deleted backup fixture", Subtitle: &subtitle, RequestKey: "backup-delete-save"})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -40,7 +41,7 @@ func TestDeletedBookBackupCanRestoreOriginalCopies(t *testing.T) {
 	}
 	defer restored.DB.Close()
 	recovered, e := restored.SetBookDeleted(ctx, b.ID, deleted.Revision, false, "backup-restore-book")
-	if e != nil || recovered.Count != 1 || recovered.Copies[0].ID != b.Copies[0].ID {
+	if e != nil || recovered.Subtitle != subtitle || recovered.Count != 1 || recovered.Copies[0].ID != b.Copies[0].ID {
 		t.Fatalf("Recovery lost copy identity %+v %v", recovered, e)
 	}
 }

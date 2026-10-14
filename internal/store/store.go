@@ -31,6 +31,7 @@ type Book struct {
 	ID                int64    `json:"id"`
 	ISBN              string   `json:"isbn"`
 	Title             string   `json:"title"`
+	Subtitle          string   `json:"subtitle"`
 	Authors           []string `json:"authors"`
 	Publisher         string   `json:"publisher"`
 	PublicationDate   string   `json:"publication_date"`
@@ -61,6 +62,7 @@ type Shelf struct {
 type Input struct {
 	ISBN            string   `json:"isbn"`
 	Title           string   `json:"title"`
+	Subtitle        *string  `json:"subtitle,omitempty"`
 	Authors         []string `json:"authors"`
 	Publisher       string   `json:"publisher"`
 	PublicationDate string   `json:"publication_date"`
@@ -94,7 +96,7 @@ func (s *Store) Book(ctx context.Context, id int64) (Book, error) {
 func (s *Store) BookIncludingDeleted(ctx context.Context, id int64) (Book, error) {
 	b := Book{Authors: []string{}, Copies: []Copy{}}
 	var a string
-	e := s.DB.QueryRowContext(ctx, "SELECT id,COALESCE(isbn,''),title,authors,publisher,publication_date,source_url,source_id,revision,deleted_at,(SELECT COUNT(*) FROM copies WHERE copies.book_id=books.id) FROM books WHERE id=?", id).Scan(&b.ID, &b.ISBN, &b.Title, &a, &b.Publisher, &b.PublicationDate, &b.SourceURL, &b.SourceID, &b.Revision, &b.DeletedAt, &b.TotalCopyCount)
+	e := s.DB.QueryRowContext(ctx, "SELECT id,COALESCE(isbn,''),title,subtitle,authors,publisher,publication_date,source_url,source_id,revision,deleted_at,(SELECT COUNT(*) FROM copies WHERE copies.book_id=books.id) FROM books WHERE id=?", id).Scan(&b.ID, &b.ISBN, &b.Title, &b.Subtitle, &a, &b.Publisher, &b.PublicationDate, &b.SourceURL, &b.SourceID, &b.Revision, &b.DeletedAt, &b.TotalCopyCount)
 	if errors.Is(e, sql.ErrNoRows) {
 		return b, ErrNotFound
 	}
@@ -183,6 +185,13 @@ func (s *Store) Save(ctx context.Context, in Input) (Book, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	in.Title = strings.TrimSpace(in.Title)
+	if in.Subtitle != nil {
+		value := strings.TrimSpace(*in.Subtitle)
+		if len(value) > 1000 {
+			return Book{}, errors.New("Subtitle must contain at most 1000 bytes")
+		}
+		in.Subtitle = &value
+	}
 	if in.Title == "" || len(in.Title) > 500 || len(in.RequestKey) < 8 || len(in.RequestKey) > 100 {
 		return Book{}, errors.New("A title and request key are required")
 	}
@@ -211,7 +220,7 @@ func (s *Store) Save(ctx context.Context, in Input) (Book, error) {
 	}
 	if id == 0 {
 		a, _ := json.Marshal(in.Authors)
-		r, e := tx.Exec("INSERT INTO books(isbn,title,authors,publisher,publication_date,source_url,source_id) VALUES(NULLIF(?,''),?,?,?,?,?,?)", in.ISBN, in.Title, string(a), in.Publisher, in.PublicationDate, in.SourceURL, in.SourceID)
+		r, e := tx.Exec("INSERT INTO books(isbn,title,subtitle,authors,publisher,publication_date,source_url,source_id) VALUES(NULLIF(?,''),?,COALESCE(?,''),?,?,?,?,?)", in.ISBN, in.Title, in.Subtitle, string(a), in.Publisher, in.PublicationDate, in.SourceURL, in.SourceID)
 		if e != nil {
 			return Book{}, e
 		}
@@ -235,6 +244,13 @@ func (s *Store) Edit(ctx context.Context, id int64, in Input) (Book, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	in.Title = strings.TrimSpace(in.Title)
+	if in.Subtitle != nil {
+		value := strings.TrimSpace(*in.Subtitle)
+		if len(value) > 1000 {
+			return Book{}, errors.New("Subtitle must contain at most 1000 bytes")
+		}
+		in.Subtitle = &value
+	}
 	if in.Title == "" || len(in.Title) > 500 {
 		return Book{}, errors.New("Title is required and must contain at most 500 bytes")
 	}
@@ -247,7 +263,7 @@ func (s *Store) Edit(ctx context.Context, id int64, in Input) (Book, error) {
 	// SQL CASE expressions inspect the previous ISBN in this one revision-checked
 	// write. Changing edition identity clears stale provider provenance; an omitted
 	// source on ordinary edits preserves it for compatibility with older clients.
-	r, e := s.DB.ExecContext(ctx, `UPDATE books SET isbn=NULLIF(?,''),title=?,authors=?,publisher=?,publication_date=?,source_url=CASE WHEN COALESCE(isbn,'')<>? THEN '' WHEN ?<>'' THEN ? ELSE source_url END,source_id=CASE WHEN COALESCE(isbn,'')<>? THEN '' WHEN ?<>'' THEN ? ELSE source_id END,revision=revision+1 WHERE id=? AND revision=? AND deleted_at IS NULL`, in.ISBN, in.Title, string(a), in.Publisher, in.PublicationDate, in.ISBN, in.SourceURL, in.SourceURL, in.ISBN, in.SourceID, in.SourceID, id, in.Revision)
+	r, e := s.DB.ExecContext(ctx, `UPDATE books SET isbn=NULLIF(?,''),title=?,subtitle=COALESCE(?,subtitle),authors=?,publisher=?,publication_date=?,source_url=CASE WHEN COALESCE(isbn,'')<>? THEN '' WHEN ?<>'' THEN ? ELSE source_url END,source_id=CASE WHEN COALESCE(isbn,'')<>? THEN '' WHEN ?<>'' THEN ? ELSE source_id END,revision=revision+1 WHERE id=? AND revision=? AND deleted_at IS NULL`, in.ISBN, in.Title, in.Subtitle, string(a), in.Publisher, in.PublicationDate, in.ISBN, in.SourceURL, in.SourceURL, in.ISBN, in.SourceID, in.SourceID, id, in.Revision)
 	if e != nil {
 		return Book{}, ErrConflict
 	}

@@ -18,13 +18,13 @@ func TestEditionLookupCacheAndFailure(t *testing.T) {
 		if r.Header.Get("User-Agent") == "" {
 			t.Error("no client identity")
 		}
-		fmt.Fprint(w, `{"ISBN:9780140328721":{"title":"Matilda","authors":[{"name":"Roald Dahl"}],"publishers":[{"name":"Puffin"}],"publish_date":"1988","url":"https://openlibrary.org/books/OL123M","identifiers":{"openlibrary":["OL123M"]}}}`)
+		fmt.Fprint(w, `{"ISBN:9780140328721":{"title":"Matilda","subtitle":"A fixture subtitle","authors":[{"name":"Roald Dahl"}],"publishers":[{"name":"Puffin"}],"publish_date":"1988","url":"https://openlibrary.org/books/OL123M","identifiers":{"openlibrary":["OL123M"]}}}`)
 	}))
 	defer s.Close()
 	c := New()
 	c.Base = s.URL
 	in, e := c.Lookup(context.Background(), "9780140328721")
-	if e != nil || in.Publisher != "Puffin" || in.PublicationDate != "1988" || in.SourceID != "OL123M" {
+	if e != nil || (in.Subtitle == nil || *in.Subtitle != "A fixture subtitle") || in.Publisher != "Puffin" || in.PublicationDate != "1988" || in.SourceID != "OL123M" {
 		t.Fatal(in, e)
 	}
 	if _, e = c.Lookup(context.Background(), "9780140328721"); e != nil || calls != 1 {

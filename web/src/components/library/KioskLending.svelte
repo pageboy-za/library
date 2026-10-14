@@ -276,7 +276,7 @@ function returnBook() {
       <div class="copy-status">
         {#if variant==='kiosk'}
           {#if book.cover_url}<img class="selected-thumb" src={book.cover_url} alt=""/>{:else}<span class="selected-thumb no-thumb" aria-hidden="true"><span>{book.title}</span><small>{book.authors[0]}</small></span>{/if}
-          <a class="current-book" href={`/books/${book.id}/`}><strong>{book.title}</strong><span>{book.authors.join(', ')}</span></a>
+          <a class="current-book" href={`/books/${book.id}/`}><strong>{book.title}</strong>{#if book.subtitle}<span>{book.subtitle}</span>{/if}<span>{book.authors.join(', ')}</span></a>
         {/if}
         {#if book.copies.length>1}
           <label class="field copy-choice">Copy

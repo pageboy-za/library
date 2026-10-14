@@ -127,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerBackupStatus(m)
 	s.registerPreferences(m)
 	s.registerDeletion(m)
+	s.registerSubtitles(m)
 	enrichment := s.Enrichment
 	if enrichment == nil {
 		enrichment = catalogue.NewEnrichment(s.Store)

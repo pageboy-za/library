@@ -1,6 +1,6 @@
 export type Copy = {id:number;shelf_id:number|null;shelf:string;label:string;out:boolean;revision:number};
-export type Book = {deleted_at?:string|null;total_copy_count:number;page_warning?:string;id:number;isbn:string;title:string;authors:string[];publisher:string;publication_date:string;source_url:string;source_id:string;revision:number;copies:Copy[];count:number;available:number;cover_url:string;cover_thumbnail_url?:string};
+export type Book = {deleted_at?:string|null;total_copy_count:number;page_warning?:string;id:number;isbn:string;title:string;subtitle:string;authors:string[];publisher:string;publication_date:string;source_url:string;source_id:string;revision:number;copies:Copy[];count:number;available:number;cover_url:string;cover_thumbnail_url?:string};
 export type Shelf = {revision:number;id:number;name:string;bookcase:string;bookcase_id:number};
-export type Draft = {isbn:string;title:string;authors:string[];publisher:string;publication_date:string;source_url?:string;source_id?:string};
+export type Draft = {isbn:string;title:string;subtitle:string;authors:string[];publisher:string;publication_date:string;source_url?:string;source_id?:string};
 export async function api<T>(url:string, body?:unknown, method='POST'):Promise<T>{const started=performance.now();const r=await fetch(url,body===undefined?{}:{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const v=await r.json();if(body!==undefined&&url.startsWith('/api/books'))console.info('Library save timing',{request_id:r.headers.get('X-Library-Request-ID'),client_response_ms:Math.round(performance.now()-started),server_timing:r.headers.get('Server-Timing')});if(!r.ok)throw new Error(v.error||'Could not complete the request');return v;}
-export const emptyDraft=():Draft=>({isbn:'',title:'',authors:[],publisher:'',publication_date:''});
+export const emptyDraft=():Draft=>({isbn:'',title:'',subtitle:'',authors:[],publisher:'',publication_date:''});

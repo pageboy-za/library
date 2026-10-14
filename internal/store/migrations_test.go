@@ -44,7 +44,7 @@ func TestLegacyCoreUpgradePreservesDataAndRestarts(t *testing.T) {
 			t.Fatal(e)
 		}
 		book, e := s.Book(context.Background(), 7)
-		if e != nil || book.Title != "Existing book" || book.Count != 1 || book.Available != 0 || book.Copies[0].ID != 11 || book.Copies[0].Shelf != "Study / One" {
+		if e != nil || book.Title != "Existing book" || book.Subtitle != "" || book.Count != 1 || book.Available != 0 || book.Copies[0].ID != 11 || book.Copies[0].Shelf != "Study / One" {
 			t.Fatalf("Legacy data changed %+v %v", book, e)
 		}
 		sh, e := s.Shelves(context.Background())

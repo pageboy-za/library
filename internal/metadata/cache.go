@@ -29,9 +29,19 @@ type Result struct {
 	Warning   string      `json:"warning,omitempty"`
 }
 
-func cloneDraft(d store.Input) store.Input { d.Authors = append([]string{}, d.Authors...); return d }
+func cloneDraft(d store.Input) store.Input {
+	d.Authors = append([]string{}, d.Authors...)
+	if d.Subtitle != nil {
+		v := *d.Subtitle
+		d.Subtitle = &v
+	}
+	return d
+}
 func validEntry(e cacheEntry, isbn string, now time.Time) bool {
 	if e.ISBN != isbn || e.Draft.ISBN != isbn || e.FetchedAt.IsZero() || e.FetchedAt.After(now.Add(5*time.Minute)) {
+		return false
+	}
+	if e.Draft.Subtitle != nil && len(*e.Draft.Subtitle) > 1000 {
 		return false
 	}
 	if strings.TrimSpace(e.Draft.Title) == "" || len(e.Draft.Title) > 500 || len(e.Draft.Authors) > 100 {

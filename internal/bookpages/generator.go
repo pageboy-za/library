@@ -24,6 +24,7 @@ type Metadata struct {
 	ID              int64    `json:"id"`
 	ISBN            string   `json:"isbn"`
 	Title           string   `json:"title"`
+	Subtitle        string   `json:"subtitle"`
 	Authors         []string `json:"authors"`
 	Publisher       string   `json:"publisher"`
 	PublicationDate string   `json:"publication_date"`
@@ -165,7 +166,7 @@ func (g *Generator) pruneGenerations(now time.Time) error {
 }
 
 func (g *Generator) snapshot(ctx context.Context) ([]byte, error) {
-	rows, e := g.Store.DB.QueryContext(ctx, "SELECT b.id,b.isbn,b.title,b.authors,b.publisher,b.publication_date,COALESCE('/covers/'||c.local_path,''),b.revision,COALESCE(d.description,''),COALESCE(d.subjects,'[]') FROM books b LEFT JOIN cover_assets c ON c.id=b.selected_cover_asset_id LEFT JOIN book_discovery d ON d.book_id=b.id WHERE b.deleted_at IS NULL ORDER BY b.id")
+	rows, e := g.Store.DB.QueryContext(ctx, "SELECT b.id,b.isbn,b.title,b.subtitle,b.authors,b.publisher,b.publication_date,COALESCE('/covers/'||c.local_path,''),b.revision,COALESCE(d.description,''),COALESCE(d.subjects,'[]') FROM books b LEFT JOIN cover_assets c ON c.id=b.selected_cover_asset_id LEFT JOIN book_discovery d ON d.book_id=b.id WHERE b.deleted_at IS NULL ORDER BY b.id")
 	if e != nil {
 		return nil, e
 	}
@@ -175,7 +176,7 @@ func (g *Generator) snapshot(ctx context.Context) ([]byte, error) {
 		var b Metadata
 		var authors, subjects string
 		var isbn, cover *string
-		if e = rows.Scan(&b.ID, &isbn, &b.Title, &authors, &b.Publisher, &b.PublicationDate, &cover, &b.Revision, &b.Description, &subjects); e != nil {
+		if e = rows.Scan(&b.ID, &isbn, &b.Title, &b.Subtitle, &authors, &b.Publisher, &b.PublicationDate, &cover, &b.Revision, &b.Description, &subjects); e != nil {
 			return nil, e
 		}
 		if isbn != nil {

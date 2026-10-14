@@ -20,6 +20,7 @@ const {book}=Astro.props as {book:StaticBook};
     <header class="book-page_metadata">
       
       <h1>{book.title}</h1>
+      {book.subtitle&&<p class="book-page_subtitle">{book.subtitle}</p>}
       <p class="book-page_authors">{book.authors.join(', ')||'Author not recorded'}</p>
       <dl class="book-page_facts">
         <div><dt>Publisher</dt><dd>{book.publisher||'Not recorded'}</dd></div>
@@ -41,6 +42,7 @@ const {book}=Astro.props as {book:StaticBook};
 </Layout>
 <style>
 @layer components {
+  .book-page_subtitle {font-size:1.125rem;line-height:1.5;color:var(--app-muted);overflow-wrap:anywhere;}
   .book-page {display:grid;gap:1.5rem;color:var(--app-ink,var(--text));min-width:0;}
   .book-page_top {display:flex;align-items:center;justify-content:space-between;gap:1rem;padding-bottom:.125rem;}
   .book-page_back {display:inline-flex;align-items:center;min-height:2.75rem;color:var(--app-muted,var(--text-2));font-size:.875rem;text-decoration:none;}

@@ -115,3 +115,5 @@ Open a book record and choose **Delete book**, then confirm the title and number
 Use **Settings → Deleted books → Restore book** to recover the same record and the copies that this deletion archived. Copies archived before deletion stay archived. Scanning a deleted ISBN offers explicit restoration; it never silently adds a copy or creates a duplicate edition. There is no permanent erase action.
 
 The migration is additive and retains SQLite compatibility version 1. Backups include deletion state and recovery records. A deliberate rollback to older software does not support hiding deleted titles, so titles may reappear there; the archived copies remain unavailable for lending. If an owner explicitly adds another copy using an older version, restoration preserves it. Return to this version to manage deletion and restoration again.
+
+Book subtitles are displayed and searchable, with optional manual editing and a fill-only existing-catalogue migration. See [SUBTITLES_README.md](SUBTITLES_README.md).

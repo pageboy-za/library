@@ -72,6 +72,18 @@ func prepareDatabase(ctx context.Context, db *sql.DB) error {
 	if e = ensureLocationSchema(ctx, tx); e != nil {
 		return fmt.Errorf("Initialize location versions: %w", e)
 	}
+	var subtitleColumn int
+	if e = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM pragma_table_info('books') WHERE name='subtitle'").Scan(&subtitleColumn); e != nil {
+		return e
+	}
+	if subtitleColumn == 0 {
+		if _, e = tx.ExecContext(ctx, "ALTER TABLE books ADD COLUMN subtitle TEXT NOT NULL DEFAULT ''"); e != nil {
+			return e
+		}
+	}
+	if e = validateColumns(ctx, tx, map[string]string{"books": "subtitle"}); e != nil {
+		return e
+	}
 	if e = ensureSearchSchema(ctx, tx); e != nil {
 		return fmt.Errorf("Initialize derived catalogue search: %w", e)
 	}
