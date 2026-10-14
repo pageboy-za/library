@@ -40,6 +40,7 @@ for n in ['types','vite','astro-cache']:
  (cache/n).mkdir(mode=0o700);shutil.chown(cache/n,user='home-library',group='home-library')
 types=pathlib.Path('/var/lib/home-library/data/build-cache')/manifest['version']/'types'
 subprocess.run(['/usr/sbin/runuser','-u','home-library','--','/usr/bin/mkdir','-p','-m','700',str(types)],check=True)
+subprocess.run(['/usr/sbin/runuser','-u','home-library','--','/usr/bin/ln','-sfnT',str(candidate/'web/node_modules'),str(types/'node_modules')],check=True)
 (candidate/'web/.astro').symlink_to(types);(candidate/'web/node_modules/.vite').symlink_to(cache/'vite')
 # Keep all original service files for manual recovery during this one-time change.
 shutil.copytree('/etc/systemd/system/home-library.service.d',state/'original-dropins')

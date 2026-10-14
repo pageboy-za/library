@@ -87,6 +87,7 @@ def activate():
    target.mkdir(mode=0o700,exist_ok=True);target.chmod(0o700);shutil.chown(target,user='home-library',group='home-library')
   types=DATA/'build-cache'/version/'types'
   as_app('/usr/bin/mkdir','-p','-m','700',types)
+  as_app('/usr/bin/ln','-sfnT',candidate/'web/node_modules',types/'node_modules')
   for target,link in [(types,candidate/'web/.astro'),(cache/'vite',candidate/'web/node_modules/.vite')]:
    if link.is_symlink():
     if os.readlink(link)!=str(target):raise ValueError('Invalid cache link')
@@ -99,6 +100,7 @@ def activate():
   test_cache=smoke/'cache';test_cache.mkdir(mode=0o700);shutil.chown(test_cache,user='library-smoke',group='library-smoke')
   for name,link in [('types',smoke/'web/.astro'),('vite',smoke/'web/node_modules/.vite')]:
    link.unlink();target=test_cache/name;target.mkdir(mode=0o700);shutil.chown(target,user='library-smoke',group='library-smoke');link.symlink_to(target)
+  subprocess.run(['/usr/sbin/runuser','-u','library-smoke','--','/usr/bin/ln','-sfnT',str(smoke/'web/node_modules'),str(test_cache/'types/node_modules')],check=True)
   env={**os.environ,'PATH':str(candidate/'runtime/bin')+':/usr/bin:/bin','HOME':str(smoke),'LIBRARY_CACHE_DIR':str(test_cache),'NODE_OPTIONS':'--max-old-space-size=384'}
   process=subprocess.Popen(['/usr/sbin/runuser','-u','library-smoke','--',str(candidate/'bin/library'),'-listen','127.0.0.1:18081','-data',str(smoke/'data'),'-web',str(smoke/'web')],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
   try:

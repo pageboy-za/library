@@ -6,7 +6,7 @@ from updates_common import verify, extract
 
 verifier=os.environ.get('RELEASE_VERIFY_BIN','./bin/library-release')
 with tempfile.TemporaryDirectory(prefix='library-release-security-') as directory:
- root=pathlib.Path(directory);private=root/'private.pem';public=root/'public.pem'
+ root=pathlib.Path(directory).resolve();private=root/'private.pem';public=root/'public.pem'
  subprocess.run([verifier,'-action','generate','-key',str(private),'-public',str(public)],check=True)
  names=['bin/library','bin/library-backup','web/package.json','web/node_modules/astro/bin/astro.mjs','runtime/bin/node']
  bodies={n:b'fixture' for n in names}
@@ -66,6 +66,20 @@ with tempfile.TemporaryDirectory(prefix='library-release-security-') as director
  assert activation.read_json(activation.STATE/'status.json')['phase']=='recovered'
  assert catalogue.read_bytes()==b'disposable persistent record'
  assert calls==[('stop','home-library.service'),('start','home-library.service')]
+ # A crash while saving the journal must leave the queued request recoverable.
+ pending=activation.ROOT/'requests/ready.json'
+ activation.atomic_json(pending,{'job':str(uuid.uuid4()),'version':'v2.0.0'})
+ real_atomic=activation.atomic_json
+ def interrupted(path,value):
+  if pathlib.Path(path)==activation.STATE/'status.json' and value.get('phase')=='preparing':raise RuntimeError('disposable interrupted journal')
+  return real_atomic(path,value)
+ activation.atomic_json=interrupted
+ try:
+  activation.activate()
+ except RuntimeError:pass
+ else:raise AssertionError('Interrupted journal did not stop activation')
+ assert pending.exists() and catalogue.read_bytes()==b'disposable persistent record'
+ activation.atomic_json=real_atomic;pending.unlink()
  calls.clear();bad={**journal,'previous':str(root)};rejected(lambda:activation.recover(bad));assert calls==[]
  # Exercise the real HTTP request handler on Linux, including owner/origin gates.
  if sys.platform.startswith('linux'):
