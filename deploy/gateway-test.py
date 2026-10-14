@@ -40,12 +40,16 @@ try:
         stage = pathlib.Path(directory)
         port, cert_port = free_port(), free_port()
         password = secrets.token_urlsafe(24)  # Disposable fixture; never a real login.
-        password_hash = subprocess.check_output([caddy, "hash-password", "--plaintext", password], text=True).strip()
+        # Low cost keeps disposable fixture checks fast on a Pi; the installer
+        # retains Caddy's default cost for the real user-created login.
+        password_hash = subprocess.check_output([caddy, "hash-password", "--bcrypt-cost", "4", "--plaintext", password], text=True).strip()
         env = dict(os.environ, HOME=str(stage), XDG_DATA_HOME=str(stage / "data"), XDG_CONFIG_HOME=str(stage / "config"),
                    LIBRARY_LOGIN_USER="fixture", LIBRARY_LOGIN_HASH=password_hash)
         origin = f"https://localhost:{port}"
         upstream = f"127.0.0.1:{backend.server_port}"
         config = (root / "Caddyfile.lan.example").read_text().replace("https://library.local", origin)
+        # Unprivileged tests must not request Caddy's automatic port-80 redirect.
+        config = config.replace("{\n", "{\n\tauto_https disable_redirects\n", 1)
         config = config.replace("http://library.local:8081", f"http://localhost:{cert_port}")
         config = config.replace("127.0.0.1:8080", upstream).replace("/var/lib/library-gateway/public", str(stage / "public"))
         path = stage / "Caddyfile"
@@ -68,7 +72,9 @@ try:
                 def request(headers=None, method="GET", suffix="/healthz", base=origin):
                     req = urllib.request.Request(base + suffix, headers=headers or {}, method=method)
                     try:
-                        with client.open(req, timeout=5) as response:
+                        # Caddy deliberately spends time hashing unknown users;
+                        # allow that anti-enumeration check on a slow Pi 3.
+                        with client.open(req, timeout=45) as response:
                             return response.status, response.read()
                     except urllib.error.HTTPError as error:
                         return error.code, error.read()
@@ -93,6 +99,8 @@ try:
                 assert request(suffix="/", base=f"http://localhost:{cert_port}")[0] == 404
                 print("PASS: TLS trust, login enforcement, foreign-Origin rejection, authenticated proxying, credential removal and certificate-only HTTP endpoint.")
             finally:
+                if process.poll() is not None:
+                    print((stage / "gateway.log").read_text())
                 process.terminate()
                 process.wait(timeout=10)
 finally:
