@@ -82,7 +82,7 @@ func (s *Store) searchIDs(ctx context.Context, q string, shelf int64, availabili
 				args = append(args, `"`+strings.ReplaceAll(normalized, `"`, `""`)+`"`)
 			}
 		}
-		predicates = append(predicates, "instr(library_search_text(CAST(b.title||' '||b.subtitle AS BLOB),CAST(b.authors AS BLOB),CAST(b.isbn AS BLOB)),?)>0")
+		predicates = append(predicates, "instr(library_search_text(CAST(CASE WHEN b.subtitle='' THEN b.title ELSE b.title||' '||b.subtitle END AS BLOB),CAST(b.authors AS BLOB),CAST(b.isbn AS BLOB)),?)>0")
 		args = append(args, normalized)
 	}
 	if availability == "available" {
@@ -141,8 +141,8 @@ func searchIndexReady(ctx context.Context, tx *sql.Tx) (bool, error) {
 }
 
 const searchTableSQL = `CREATE VIRTUAL TABLE IF NOT EXISTS book_search USING fts5(document,tokenize='trigram case_sensitive 1')`
-const searchInsertTrigger = `CREATE TRIGGER IF NOT EXISTS book_search_ai AFTER INSERT ON books BEGIN INSERT INTO book_search(rowid,document) VALUES(new.id,library_search_index(CAST(new.title||' '||new.subtitle AS BLOB),CAST(new.authors AS BLOB),CAST(new.isbn AS BLOB))); END`
-const searchUpdateTrigger = `CREATE TRIGGER IF NOT EXISTS book_search_au AFTER UPDATE OF id,title,subtitle,authors,isbn ON books BEGIN DELETE FROM book_search WHERE rowid=old.id; INSERT INTO book_search(rowid,document) VALUES(new.id,library_search_index(CAST(new.title||' '||new.subtitle AS BLOB),CAST(new.authors AS BLOB),CAST(new.isbn AS BLOB))); END`
+const searchInsertTrigger = `CREATE TRIGGER IF NOT EXISTS book_search_ai AFTER INSERT ON books BEGIN INSERT INTO book_search(rowid,document) VALUES(new.id,library_search_index(CAST(CASE WHEN new.subtitle='' THEN new.title ELSE new.title||' '||new.subtitle END AS BLOB),CAST(new.authors AS BLOB),CAST(new.isbn AS BLOB))); END`
+const searchUpdateTrigger = `CREATE TRIGGER IF NOT EXISTS book_search_au AFTER UPDATE OF id,title,subtitle,authors,isbn ON books BEGIN DELETE FROM book_search WHERE rowid=old.id; INSERT INTO book_search(rowid,document) VALUES(new.id,library_search_index(CAST(CASE WHEN new.subtitle='' THEN new.title ELSE new.title||' '||new.subtitle END AS BLOB),CAST(new.authors AS BLOB),CAST(new.isbn AS BLOB))); END`
 const searchDeleteTrigger = `CREATE TRIGGER IF NOT EXISTS book_search_ad AFTER DELETE ON books BEGIN DELETE FROM book_search WHERE rowid=old.id; END`
 
 // EnsureSearchSchema only adds derived data. Startup can invoke the transaction
@@ -195,7 +195,7 @@ func rebuildSearchIndex(ctx context.Context, tx *sql.Tx) error {
 	if _, err := tx.ExecContext(ctx, "DELETE FROM book_search"); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO book_search(rowid,document) SELECT id,library_search_index(CAST(title||' '||subtitle AS BLOB),CAST(authors AS BLOB),CAST(isbn AS BLOB)) FROM books`)
+	_, err := tx.ExecContext(ctx, `INSERT INTO book_search(rowid,document) SELECT id,library_search_index(CAST(CASE WHEN subtitle='' THEN title ELSE title||' '||subtitle END AS BLOB),CAST(authors AS BLOB),CAST(isbn AS BLOB)) FROM books`)
 	return err
 }
 

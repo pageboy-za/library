@@ -14,9 +14,13 @@ func TestSubtitlesFillOnlyPreservesInventoryAndEdits(t *testing.T) {
 	}
 	defer s.DB.Close()
 	ctx := context.Background()
-	b, e := s.Save(ctx, Input{Title: "Fixture", ISBN: "9780140328721", RequestKey: "subtitle-fixture-save"})
+	b, e := s.Save(ctx, Input{Title: "Fixture", Authors: []string{"A Writer"}, ISBN: "9780140328721", RequestKey: "subtitle-fixture-save"})
 	if e != nil {
 		t.Fatal(e)
+	}
+	_, before, err := s.List(ctx, "Fixture A Writer", 0, "", 1)
+	if err != nil || before != 1 {
+		t.Fatal("Empty subtitle changed title-author phrase search", before, err)
 	}
 	u := SubtitleUpdate{ID: b.ID, ISBN: b.ISBN, SourceID: b.SourceID, Revision: b.Revision, Subtitle: "A distinct searchable phrase"}
 	r, e := s.FillSubtitles(ctx, []SubtitleUpdate{u})
