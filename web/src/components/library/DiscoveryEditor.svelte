@@ -26,11 +26,11 @@ async function save(e:SubmitEvent){
 async function enrich(){
  busy=true;error='';message='';
  try{
-  const response=await api<Published<Enriched>>(`/api/books/${bookId}/discovery/enrich`,{});
+  const response=await api<Published<Enriched>>(`/api/books/${bookId}/discovery/enrich`,{include_publication_year:true});
   const {value,warning}=normalize(response);receive(value.discovery);sourceURL=value.source_url;workLevel=value.work_level;
   if(warning){message=warning;return;}
-  message=value.changed?'Filled empty description and subjects. Review these details below.':'No missing description or subjects could be filled.';
-  if(value.changed&&staticKey(value.discovery)!==publishedFields)window.location.reload();
+  message=value.changed?'Filled available empty fields. Description and subjects are below; first publication year is shown in book details.':'No missing description, subjects or first publication year could be filled.';
+  if(value.changed)window.location.reload();
  }catch(e){error=(e as Error).message;}finally{busy=false;}
 }
 </script>
@@ -38,7 +38,7 @@ async function enrich(){
 <p class="library-muted">Keep your own themes and ideas here. Personal tags and notes stay in your local library.</p>
 {#if ready}
 <button type="button" class="library-button" onclick={enrich} disabled={busy||dirty}>{busy?'Working…':'Fill empty fields from Open Library'}</button>
-<p class="library-muted">Fills only empty description and subjects; keeps your tags and notes. Save changes first before fetching. Subjects may describe the general work rather than this specific edition.</p>
+<p class="library-muted">Fills only empty description, subjects and first publication year; keeps your tags, notes and corrections. Save changes first before fetching. Subjects may describe the general work rather than this specific edition.</p>
 {#if sourceURL}<p>Imported from <a href={sourceURL} target="_blank" rel="noreferrer">Open Library {workLevel?'work (general book information)':'edition'}</a>.</p>{/if}
 <form onsubmit={save}>
 <label class="library-field">Description<textarea bind:value={data.description} maxlength="20000" rows="4"></textarea></label>

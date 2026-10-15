@@ -48,7 +48,7 @@ onDestroy(()=>{stopped=true;clearTimeout(coverTimer);});
     <CoverPicker bookId={book.id}/>
     <DiscoveryEditor bookId={book.id}/>
     {#if description}<section class="book-page_about"><h2>About this book</h2><p>{description}</p></section>{/if}
-    {#if subjects.length}<section class="book-page_subjects"><h2>Subjects</h2><ul>{#each subjects as subject}<li>{subject}</li>{/each}</ul></section>{/if}
+    {#if subjects.length}<section class="book-page_subjects"><h2>Subjects</h2><ul>{#each subjects as subject}<li><a href={`/catalogue/?subject=${encodeURIComponent(subject)}`}>{subject}</a></li>{/each}</ul></section>{/if}
   </div>
 </article>
 {:else if !error}<p role="status">Loading book…</p>{/if}

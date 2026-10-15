@@ -26,23 +26,27 @@ type Store struct {
 	mu sync.Mutex
 }
 type Book struct {
-	TotalCopyCount    int      `json:"total_copy_count"`
-	DeletedAt         *string  `json:"deleted_at"`
-	ID                int64    `json:"id"`
-	ISBN              string   `json:"isbn"`
-	Title             string   `json:"title"`
-	Subtitle          string   `json:"subtitle"`
-	Authors           []string `json:"authors"`
-	Publisher         string   `json:"publisher"`
-	PublicationDate   string   `json:"publication_date"`
-	SourceURL         string   `json:"source_url"`
-	SourceID          string   `json:"source_id"`
-	Revision          int      `json:"revision"`
-	Copies            []Copy   `json:"copies"`
-	CoverURL          string   `json:"cover_url"`
-	CoverThumbnailURL string   `json:"cover_thumbnail_url"`
-	Count             int      `json:"count"`
-	Available         int      `json:"available"`
+	Subjects                    []string `json:"subjects"`
+	FirstPublishedYear          *int     `json:"first_published_year"`
+	FirstPublishedYearSourceURL string   `json:"first_published_year_source_url"`
+	BibliographyRevision        int      `json:"bibliography_revision"`
+	TotalCopyCount              int      `json:"total_copy_count"`
+	DeletedAt                   *string  `json:"deleted_at"`
+	ID                          int64    `json:"id"`
+	ISBN                        string   `json:"isbn"`
+	Title                       string   `json:"title"`
+	Subtitle                    string   `json:"subtitle"`
+	Authors                     []string `json:"authors"`
+	Publisher                   string   `json:"publisher"`
+	PublicationDate             string   `json:"publication_date"`
+	SourceURL                   string   `json:"source_url"`
+	SourceID                    string   `json:"source_id"`
+	Revision                    int      `json:"revision"`
+	Copies                      []Copy   `json:"copies"`
+	CoverURL                    string   `json:"cover_url"`
+	CoverThumbnailURL           string   `json:"cover_thumbnail_url"`
+	Count                       int      `json:"count"`
+	Available                   int      `json:"available"`
 }
 type Copy struct {
 	ID       int64  `json:"id"`
@@ -94,7 +98,7 @@ func (s *Store) Book(ctx context.Context, id int64) (Book, error) {
 	return b, e
 }
 func (s *Store) BookIncludingDeleted(ctx context.Context, id int64) (Book, error) {
-	b := Book{Authors: []string{}, Copies: []Copy{}}
+	b := Book{Authors: []string{}, Copies: []Copy{}, Subjects: []string{}}
 	var a string
 	e := s.DB.QueryRowContext(ctx, "SELECT id,COALESCE(isbn,''),title,subtitle,authors,publisher,publication_date,source_url,source_id,revision,deleted_at,(SELECT COUNT(*) FROM copies WHERE copies.book_id=books.id) FROM books WHERE id=?", id).Scan(&b.ID, &b.ISBN, &b.Title, &b.Subtitle, &a, &b.Publisher, &b.PublicationDate, &b.SourceURL, &b.SourceID, &b.Revision, &b.DeletedAt, &b.TotalCopyCount)
 	if errors.Is(e, sql.ErrNoRows) {
@@ -131,7 +135,24 @@ func (s *Store) BookIncludingDeleted(ctx context.Context, id int64) (Book, error
 		return b, e
 	}
 	b.CoverThumbnailURL, e = s.SelectedCoverThumbnailURL(ctx, id)
-	return b, e
+	if e != nil {
+		return b, e
+	}
+	bibliography, e := s.Bibliography(ctx, id)
+	if e != nil {
+		return b, e
+	}
+	b.FirstPublishedYear = bibliography.FirstPublishedYear
+	b.FirstPublishedYearSourceURL = bibliography.SourceURL
+	b.BibliographyRevision = bibliography.Revision
+	discovery, e := s.Discovery(ctx, id)
+	if e != nil && !strings.Contains(e.Error(), "no such table: book_discovery") {
+		return b, e
+	}
+	if e == nil {
+		b.Subjects = discovery.Subjects
+	}
+	return b, nil
 }
 func (s *Store) ByISBN(ctx context.Context, isbn string) (Book, error) {
 	var id int64
@@ -146,7 +167,10 @@ func (s *Store) ByISBN(ctx context.Context, isbn string) (Book, error) {
 }
 func fold(s string) string { return strings.ToLower(norm.NFKC.String(s)) }
 func (s *Store) List(ctx context.Context, q string, shelf int64, availability string, page int) ([]Book, int, error) {
-	ids, total, e := s.searchIDs(ctx, q, shelf, availability, page)
+	return s.ListWithOptions(ctx, q, shelf, availability, page, ListOptions{})
+}
+func (s *Store) ListWithOptions(ctx context.Context, q string, shelf int64, availability string, page int, options ListOptions) ([]Book, int, error) {
+	ids, total, e := s.searchIDsOptions(ctx, q, shelf, availability, page, options)
 	if e != nil {
 		return nil, 0, e
 	}

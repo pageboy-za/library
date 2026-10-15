@@ -6,6 +6,8 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -14,7 +16,39 @@ import (
 
 const cataloguePageSize = 24
 
+var publicationYearPattern = regexp.MustCompile(`(?:^|[^0-9])([0-9]{4})(?:$|[^0-9])`)
+
+func publicationSortYear(value string) any {
+	m := publicationYearPattern.FindStringSubmatch(value)
+	if len(m) != 2 {
+		return nil
+	}
+	n, _ := strconv.Atoi(m[1])
+	if n < 1 {
+		return nil
+	}
+	return n
+}
 func init() {
+	sqlite.MustRegisterDeterministicScalarFunction("library_publication_year", 1, func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+		if v, ok := args[0].(string); ok {
+			year := publicationSortYear(v)
+			if year != nil {
+				return int64(year.(int)), nil
+			}
+		}
+		return nil, nil
+	})
+	sqlite.MustRegisterDeterministicScalarFunction("library_label_fold", 1, func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+		switch v := args[0].(type) {
+		case string:
+			return fold(strings.TrimSpace(v)), nil
+		case []byte:
+			return fold(strings.TrimSpace(string(v))), nil
+		default:
+			return "", nil
+		}
+	})
 	sqlite.MustRegisterDeterministicScalarFunction("library_search_text", 3, searchDocument)
 	// Scalar arguments are passed as BLOB because modernc TEXT conversion stops
 	// at NUL. FTS tokenization also stops at NUL. Replacing it only in candidate documents
@@ -63,6 +97,19 @@ func searchDocument(_ *sqlite.FunctionContext, args []driver.Value) (driver.Valu
 // searchIDs returns total and page IDs from one SQLite read snapshot. Book()
 // hydration happens only after rows and the transaction close (one connection).
 func (s *Store) searchIDs(ctx context.Context, q string, shelf int64, availability string, page int) ([]int64, int, error) {
+	return s.searchIDsOptions(ctx, q, shelf, availability, page, ListOptions{})
+}
+
+type ListOptions struct {
+	Subject string
+	Sort    string
+}
+
+func (s *Store) searchIDsOptions(ctx context.Context, q string, shelf int64, availability string, page int, options ListOptions) ([]int64, int, error) {
+	order, err := catalogueOrder(options.Sort)
+	if err != nil {
+		return nil, 0, err
+	}
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, 0, err
@@ -92,6 +139,10 @@ func (s *Store) searchIDs(ctx context.Context, q string, shelf int64, availabili
 		predicates = append(predicates, `EXISTS(SELECT 1 FROM copies c WHERE c.book_id=b.id AND c.archived_at IS NULL AND c.shelf_id=?)`)
 		args = append(args, shelf)
 	}
+	if strings.TrimSpace(options.Subject) != "" {
+		predicates = append(predicates, `EXISTS(SELECT 1 FROM book_discovery d,json_each(d.subjects) j WHERE d.book_id=b.id AND library_label_fold(CAST(j.value AS BLOB))=?)`)
+		args = append(args, fold(strings.TrimSpace(options.Subject)))
+	}
 	where := strings.Join(predicates, " AND ")
 	var total int
 	if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM books b WHERE "+where, args...).Scan(&total); err != nil {
@@ -106,7 +157,7 @@ func (s *Store) searchIDs(ctx context.Context, q string, shelf int64, availabili
 		return ids, total, err
 	}
 	queryArgs := append(append([]any{}, args...), cataloguePageSize, (page-1)*cataloguePageSize)
-	rows, err := tx.QueryContext(ctx, "SELECT b.id FROM books b WHERE "+where+" ORDER BY b.title COLLATE NOCASE,b.id LIMIT ? OFFSET ?", queryArgs...)
+	rows, err := tx.QueryContext(ctx, "SELECT b.id FROM books b WHERE "+where+" ORDER BY "+order+" LIMIT ? OFFSET ?", queryArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -241,4 +292,27 @@ func recognizedSearchTriggers(ctx context.Context, tx *sql.Tx) (int, error) {
 		}
 	}
 	return count, rows.Err()
+}
+
+func catalogueOrder(value string) (string, error) {
+	switch value {
+	case "", "title":
+		return "b.title COLLATE NOCASE,b.id", nil
+	case "author":
+		return "CASE WHEN COALESCE(json_extract(b.authors,'$[0]'),'')='' THEN 1 ELSE 0 END,json_extract(b.authors,'$[0]') COLLATE NOCASE,b.title COLLATE NOCASE,b.id", nil
+	case "published_newest", "published_oldest":
+		order := "DESC"
+		if value == "published_oldest" {
+			order = "ASC"
+		}
+		return "CASE WHEN library_publication_year(b.publication_date) IS NULL THEN 1 ELSE 0 END,library_publication_year(b.publication_date) " + order + ",b.title COLLATE NOCASE,b.id", nil
+	case "first_published_newest", "first_published_oldest":
+		order := "DESC"
+		if value == "first_published_oldest" {
+			order = "ASC"
+		}
+		return "CASE WHEN (SELECT first_published_year FROM book_bibliography WHERE book_id=b.id) IS NULL THEN 1 ELSE 0 END,(SELECT first_published_year FROM book_bibliography WHERE book_id=b.id) " + order + ",b.title COLLATE NOCASE,b.id", nil
+	default:
+		return "", errors.New("Choose a supported catalogue sort")
+	}
 }

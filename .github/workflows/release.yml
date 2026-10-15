@@ -32,6 +32,7 @@ jobs:
           python3 -c 'import os,re; assert re.fullmatch(r"v\d+\.\d+\.\d+",os.environ["RELEASE_VERSION"])'
           go test ./...
           go vet ./...
+          python3 deploy/backfill-metadata-test.py
           cd web
           npm ci --no-audit --no-fund
           npm run check

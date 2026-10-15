@@ -1,3 +1,22 @@
+# v0.6.0 — approved metadata release
+
+Release, Pi installation and fill-only subject/first-publication-year backfill requested by Nealle on 15 October 2026.
+
+## Included changes
+
+
+- Update options: offer newer releases and only the previous successfully installed version for rollback; hide older release install buttons. Uses the installer's recorded previous version rather than guessing from GitHub release order. After rolling back, no further downgrade is offered.
+- Validation: Astro check/build passed; version-policy checks covered numeric ordering, unknown/failed status and chained downgrades. A local browser preview offered v0.6.0, installed v0.5.0 and rollback to v0.4.1, with no controls for v0.4.0 or v0.3.0.
+
+- Metadata browsing: searchable subject filters with book counts; title, author, edition-date and first-publication-year sorting. Subject labels can overlap and do not change physical shelves.
+- First publication year: store and display the earliest year Open Library indexes for the linked work separately from the owned edition date, with a source link and manual correction/clearing. Explicit enrichment fills missing data and preserves existing records; revision checks reject concurrent overwrites.
+- Validation: full Go race suite and vet passed; Astro check/build passed. Backend checks cover additive migration, backup/restore, v0.5.0 compatibility, exact linked-work lookup, bounded/rate-limited requests, manual correction, provenance, missing values, subject facets, sorting and concurrent edits. Integrated tablet browser checks confirmed subject counts/filtering, year ordering, separate edition/first-year display, and a saved manual correction that removed imported provenance while retaining the edition date and copy count. A browser-found input-pattern issue was corrected and reverified. Disposable records only.
+
+- Controlled metadata migration: private plans use cached exact-edition and explicitly linked-work data, fill only empty subjects and unset first years, protect manual corrections/clears, skip stale/deleted records, and preserve core details, inventory, notes, tags, descriptions, shelves, borrowers and loans. The script verifies these boundaries after application and makes no provider requests.
+- Release checks: full Go race suite, vet, Astro check/build, complete-history secret scan and five migration-script tests passed. The signed release workflow repeats source tests and scans before publication.
+
+## Previous release
+
 # v0.5.0 — approved release bundle
 
 Release and Pi deployment requested by Nealle on 15 October 2026.
@@ -23,3 +42,9 @@ Validation: affected Go race tests and Astro check passed. Tests cover blocked/f
 - Review the bundled changes and confirm the release scope.
 - Complete relevant checks and update these notes with the results.
 - Publish the signed release and deploy through Settings; verify catalogue preservation and Pi readiness.
+
+## Pi deployment verified — 15 October 2026
+
+- Signed v0.5.0 installed successfully through Settings; commit `2595ccc4de963a1bbe6aa417b69b75fcb9791728`.
+- The installer created and verified its backup. A before/after API fingerprint matched for persisted catalogue, copy, shelf, borrower, lending, preference, deletion and discovery fields (excluding newly added derived loan cover URLs).
+- An isolated Pi instance of the installed release saved three disposable books in 1.068, 0.503 and 0.383 seconds; their live page shells opened in 0.035, 0.010 and 0.007 seconds. Background page generation also completed successfully. No test records were added to the household catalogue.

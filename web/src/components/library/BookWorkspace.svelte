@@ -2,6 +2,7 @@
 import {onMount,tick} from 'svelte';
 import {api,type Book,type Copy,type Shelf,type Draft} from '../../lib/api';
 import BookDelete from './BookDelete.svelte';
+import FirstPublicationEditor from './FirstPublicationEditor.svelte';
 import BookForm from './BookForm.svelte';import CopyArchive from './CopyArchive.svelte';
 export let bookId:number;
 type Borrower={id:number;name:string;notes:string};type Loan={id:number;copy_id:number;borrower:string;checked_out_at:string;due_date:string|null;returned_at:string|null};
@@ -21,7 +22,7 @@ async function addBorrower(copyId:number){const name=(names[copyId]||'').trim();
 <section class="workspace" aria-label="Your copies and lending">
 {#if error}<p role="alert" class="library-error">{error}</p>{/if}
 {#if loading}<p>Loading your copies…</p>{:else if book}
-{#if editing&&editingBook&&editingDraft}<section class="workspace_editor" aria-label="Edit book details"><BookForm draft={editingDraft} {shelves} editing={editingBook} saved={()=>window.location.reload()} busyChanged={(value)=>busy=value}/></section>{/if}
+{#if editing&&editingBook&&editingDraft}<section class="workspace_editor" aria-label="Edit book details"><BookForm draft={editingDraft} {shelves} editing={editingBook} saved={()=>window.location.reload()} busyChanged={(value)=>busy=value}/><FirstPublicationEditor book={editingBook}/></section>{/if}
 <div class="workspace_heading"><h2>Your copies</h2><span>{book.count} {book.count===1?'copy':'copies'} · {book.available} available</span></div>
 {#each book.copies as copy (copy.id)}{@const loan=active(copy.id)}
 <article class="workspace_copy" aria-label={copy.label||`Copy ${copy.id}`}>

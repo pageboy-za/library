@@ -69,6 +69,9 @@ func prepareDatabase(ctx context.Context, db *sql.DB) error {
 	if e = ensureDiscoverySchema(ctx, tx); e != nil {
 		return fmt.Errorf("Initialize discovery schema: %w", e)
 	}
+	if e = ensureBibliographySchema(ctx, tx); e != nil {
+		return fmt.Errorf("Initialize bibliography schema: %w", e)
+	}
 	if e = ensureLocationSchema(ctx, tx); e != nil {
 		return fmt.Errorf("Initialize location versions: %w", e)
 	}
@@ -161,7 +164,7 @@ func validateCore(ctx context.Context, q schemaReader) error {
 	return validateCoreIndexes(ctx, q)
 }
 func validateFeatures(ctx context.Context, q schemaReader) error {
-	return validateColumns(ctx, q, map[string]string{"book_discovery": "book_id,description,subjects,tags,notes,revision", "location_versions": "kind,id,revision"})
+	return validateColumns(ctx, q, map[string]string{"book_discovery": "book_id,description,subjects,tags,notes,revision", "location_versions": "kind,id,revision", "book_bibliography": "book_id,first_published_year,source_url,revision"})
 }
 func checkForeignKeys(ctx context.Context, q schemaReader) error {
 	rows, e := q.QueryContext(ctx, "PRAGMA foreign_key_check")

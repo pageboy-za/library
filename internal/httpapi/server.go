@@ -110,26 +110,26 @@ func (s *Server) Handler() http.Handler {
 	s.registerPreferences(m)
 	s.registerDeletion(m)
 	s.registerSubtitles(m)
+	s.registerBibliography(m)
 	enrichment := s.Enrichment
 	if enrichment == nil {
 		enrichment = catalogue.NewEnrichment(s.Store)
 	}
 	m.HandleFunc("POST /api/books/{id}/discovery/enrich", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{}
+		var in struct {
+			IncludePublicationYear bool `json:"include_publication_year"`
+		}
 		if e := decode(w, r, &in); e != nil {
 			failure(w, e)
 			return
 		}
-		v, e := enrichment.Enrich(r.Context(), id(r))
+		v, e := enrichment.EnrichWithOptions(r.Context(), id(r), in.IncludePublicationYear)
 		if e != nil {
 			failure(w, e)
 			return
 		}
-		if v.Changed && s.Pages != nil {
-			if e = s.Pages.Ensure(context.WithoutCancel(r.Context())); e != nil {
-				jsonResponse(w, 202, map[string]any{"discovery": v.Discovery, "source_url": v.SourceURL, "work_level": v.WorkLevel, "changed": v.Changed, "page_warning": "Details saved; static page generation failed. Open the book to retry."})
-				return
-			}
+		if v.Changed && (s.Pages != nil || s.Covers != nil) {
+			s.queuePublication(id(r))
 		}
 		jsonResponse(w, 200, v)
 	})
@@ -191,7 +191,7 @@ func (s *Server) Handler() http.Handler {
 			page = 1
 		}
 		shelf, _ := strconv.ParseInt(r.URL.Query().Get("shelf_id"), 10, 64)
-		b, total, e := s.Store.List(r.Context(), r.URL.Query().Get("q"), shelf, r.URL.Query().Get("availability"), page)
+		b, total, e := s.Store.ListWithOptions(r.Context(), r.URL.Query().Get("q"), shelf, r.URL.Query().Get("availability"), page, store.ListOptions{Subject: r.URL.Query().Get("subject"), Sort: r.URL.Query().Get("sort")})
 		if e != nil {
 			failure(w, e)
 			return

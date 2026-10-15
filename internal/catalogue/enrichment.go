@@ -20,17 +20,21 @@ import (
 // EnrichmentService fetches only the saved edition and its explicitly linked work.
 // Base is configurable for tests; HTTP routes never accept a remote URL.
 type EnrichmentService struct {
-	Store *store.Store
-	HTTP  *http.Client
-	Base  string
-	mu    sync.Mutex
-	last  time.Time
+	Store     *store.Store
+	HTTP      *http.Client
+	Base      string
+	mu        sync.Mutex
+	last      time.Time
+	cache     map[string]enrichmentCacheEntry
+	cacheHTTP *http.Client
+	cacheBase string
 }
 type EnrichmentResult struct {
-	Discovery store.Discovery `json:"discovery"`
-	SourceURL string          `json:"source_url"`
-	WorkLevel bool            `json:"work_level"`
-	Changed   bool            `json:"changed"`
+	Discovery    store.Discovery    `json:"discovery"`
+	Bibliography store.Bibliography `json:"bibliography"`
+	SourceURL    string             `json:"source_url"`
+	WorkLevel    bool               `json:"work_level"`
+	Changed      bool               `json:"changed"`
 }
 
 func NewEnrichment(s *store.Store) *EnrichmentService {
@@ -61,22 +65,48 @@ func description(raw json.RawMessage) string {
 	}
 	return ""
 }
+
+type enrichmentCacheEntry struct {
+	Body    []byte
+	Expires time.Time
+}
+
 func (s *EnrichmentService) fetch(ctx context.Context, path string) (enrichmentRecord, error) {
+	body, err := s.fetchBytes(ctx, path+".json")
+	if err != nil {
+		return enrichmentRecord{}, err
+	}
+	var record enrichmentRecord
+	err = json.Unmarshal(body, &record)
+	return record, err
+}
+func (s *EnrichmentService) fetchBytes(ctx context.Context, path string) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.cacheHTTP != s.HTTP || s.cacheBase != s.Base {
+		s.cache = nil
+		s.cacheHTTP = s.HTTP
+		s.cacheBase = s.Base
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if entry, ok := s.cache[path]; ok && time.Now().Before(entry.Expires) {
+		return entry.Body, nil
+	}
 	if delay := time.Second - time.Since(s.last); delay > 0 {
 		timer := time.NewTimer(delay)
 		defer timer.Stop()
 		select {
 		case <-timer.C:
 		case <-ctx.Done():
-			return enrichmentRecord{}, ctx.Err()
+			return nil, ctx.Err()
 		}
 	}
 	s.last = time.Now()
-	req, err := http.NewRequestWithContext(ctx, "GET", strings.TrimRight(s.Base, "/")+path+".json", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", strings.TrimRight(s.Base, "/")+path, nil)
 	if err != nil {
-		return enrichmentRecord{}, err
+		return nil, err
 	}
 	req.Header.Set("User-Agent", "HomeLibrary/0.1 (personal local catalogue)")
 	client := *s.HTTP
@@ -89,24 +119,32 @@ func (s *EnrichmentService) fetch(ctx context.Context, path string) (enrichmentR
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return enrichmentRecord{}, errors.New("Open Library enrichment is unavailable. Your saved notes have not changed")
+		return nil, errors.New("Open Library enrichment is unavailable. Your saved notes have not changed")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return enrichmentRecord{}, fmt.Errorf("Open Library enrichment returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("Open Library enrichment returned status %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil {
-		return enrichmentRecord{}, err
+		return nil, err
 	}
 	if len(body) > 1<<20 {
-		return enrichmentRecord{}, errors.New("Open Library response is too large")
+		return nil, errors.New("Open Library response is too large")
 	}
-	var record enrichmentRecord
-	err = json.Unmarshal(body, &record)
-	return record, err
+	if !json.Valid(body) {
+		return nil, errors.New("Open Library returned invalid metadata")
+	}
+	if s.cache == nil || len(s.cache) >= 256 {
+		s.cache = map[string]enrichmentCacheEntry{}
+	}
+	s.cache[path] = enrichmentCacheEntry{Body: body, Expires: time.Now().Add(time.Hour)}
+	return body, nil
 }
 func (s *EnrichmentService) Enrich(ctx context.Context, id int64) (EnrichmentResult, error) {
+	return s.EnrichWithOptions(ctx, id, false)
+}
+func (s *EnrichmentService) EnrichWithOptions(ctx context.Context, id int64, includeYear bool) (EnrichmentResult, error) {
 	book, err := s.Store.Book(ctx, id)
 	if err != nil {
 		return EnrichmentResult{}, err
@@ -115,8 +153,13 @@ func (s *EnrichmentService) Enrich(ctx context.Context, id int64) (EnrichmentRes
 	if err != nil {
 		return EnrichmentResult{}, err
 	}
-	result := EnrichmentResult{Discovery: d}
-	if d.Description != "" && len(d.Subjects) > 0 {
+	bibliography, err := s.Store.Bibliography(ctx, id)
+	if err != nil {
+		return EnrichmentResult{}, err
+	}
+	result := EnrichmentResult{Discovery: d, Bibliography: bibliography}
+	needYear := includeYear && bibliography.FirstPublishedYear == nil && bibliography.Revision == 0
+	if d.Description != "" && len(d.Subjects) > 0 && !needYear {
 		return result, nil
 	}
 	path := ""
@@ -175,9 +218,55 @@ func (s *EnrichmentService) Enrich(ctx context.Context, id int64) (EnrichmentRes
 		d.Subjects = labels
 		result.Changed = true
 	}
-	if !result.Changed {
+	discoveryChanged := result.Changed
+	yearChanged := false
+	if needYear && len(record.Works) > 0 && workKey.MatchString(record.Works[0].Key) {
+		year, err := s.firstPublicationYear(ctx, record.Works[0].Key)
+		if err != nil {
+			return result, err
+		}
+		if year != nil {
+			bibliography.FirstPublishedYear = year
+			bibliography.SourceURL = "https://openlibrary.org" + record.Works[0].Key
+			yearChanged = true
+		}
+	}
+	if !discoveryChanged && !yearChanged {
 		return result, nil
 	}
-	result.Discovery, err = s.Store.SaveDiscoveryForBookRevision(ctx, id, d, book.Revision)
+	result.Discovery, result.Bibliography, err = s.Store.SaveEnrichment(ctx, id, d, bibliography, book.Revision, discoveryChanged, yearChanged)
+	result.Changed = err == nil
 	return result, err
+}
+
+// Search's first_publish_year describes the linked work, never its owned edition.
+func (s *EnrichmentService) firstPublicationYear(ctx context.Context, key string) (*int, error) {
+	if !workKey.MatchString(key) {
+		return nil, errors.New("Invalid linked work")
+	}
+	query := url.Values{"q": {"key:" + key}, "fields": {"key,first_publish_year"}, "limit": {"1"}}
+	body, err := s.fetchBytes(ctx, "/search.json?"+query.Encode())
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Docs []struct {
+			Key  string `json:"key"`
+			Year *int   `json:"first_publish_year"`
+		} `json:"docs"`
+	}
+	if err = json.Unmarshal(body, &response); err != nil {
+		return nil, err
+	}
+	if len(response.Docs) == 1 && regexp.MustCompile(`^OL[0-9]+W$`).MatchString(response.Docs[0].Key) {
+		response.Docs[0].Key = "/works/" + response.Docs[0].Key
+	}
+	if len(response.Docs) != 1 || response.Docs[0].Key != key {
+		return nil, nil
+	}
+	year := response.Docs[0].Year
+	if year != nil && (*year < 1 || *year > time.Now().Year()+1) {
+		return nil, nil
+	}
+	return year, nil
 }
