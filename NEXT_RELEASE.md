@@ -6,6 +6,12 @@ Point release and Pi installation requested by Nealle on 15 October 2026.
 
 - Validation: Astro check passed with no errors or warnings; production Astro generation passed. Local browser checks confirmed the navigation and tablet kiosk icons, matching favicon declarations, and legible 16/24/32-pixel tab artwork on light and dark backgrounds. Disposable preview records only.
 
+## Pi deployment verified — 15 October 2026
+
+- Signed v0.6.1 installed through Settings; application commit `97cb979afcf52aecbdb4199e2cb0564825ad8190`.
+- Candidate app check and catalogue backup verification passed. The complete pre/post API fingerprint matched, including metadata, subjects, publication years, copies, deletion state, discovery details, shelves, borrowers, loans and preferences.
+- Live health and version checks passed. The header mark and SVG favicon are present, and Settings offers rollback to v0.6.0 only.
+
 ## Previous release record
 
 # v0.6.0 — approved metadata release
