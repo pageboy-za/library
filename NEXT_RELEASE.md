@@ -1,3 +1,20 @@
+# v0.7.0 — approved mobile and search release
+
+Release and Pi installation requested by Nealle on 15 October 2026.
+
+## Included changes
+
+- Phone browsing: a two-column book grid scrolls vertically within the screen. Search and controls wrap to fit, and arrival does not automatically open the phone keyboard. Opening a book and returning with All books restores focus to the selected book.
+- Home-screen sorting: title and author in either direction, plus first publication year newest/oldest. Sorting applies to filtered results, with missing authors or years last and stable title/ID ties.
+- Search relevance: title matches appear before subtitle or author matches; the selected sort applies within each group. Clearing the query restores ordinary sorting.
+
+## Validation
+
+- Sort/relevance unit tests and Astro checks passed. Combined browser checks used disposable books at 320, 390, 700, 768 and 1280 pixels: phone columns/vertical scroll and screen fit, no automatic phone search focus, all six sort orders, missing values last, title-first search with the chosen sort, clearing search, and selected-book focus on returning from details.
+- The signed release workflow runs the sorting regression tests alongside its existing application, version, backup/migration and secret checks.
+
+## Previous release record
+
 # v0.6.1 — approved icon update
 
 Point release and Pi installation requested by Nealle on 15 October 2026.

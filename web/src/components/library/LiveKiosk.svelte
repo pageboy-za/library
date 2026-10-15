@@ -1,6 +1,7 @@
 <script lang="ts">
 import {onMount,tick} from 'svelte';
 import {api,type Book} from '../../lib/api';
+import {compareBooks,type BookSort} from '../../lib/book-sort';
 import KioskLending from './KioskLending.svelte';
 import KioskBookStatus from './KioskBookStatus.svelte';
 import KioskLoansLink from './KioskLoansLink.svelte';
@@ -27,9 +28,26 @@ const menu=document.querySelector<HTMLDetailsElement>('.tools-menu');
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu?.open){menu.open=false;menu.querySelector('summary')?.focus();}});
 document.addEventListener('click',event=>{if(menu?.open&&event.target instanceof Node&&!menu.contains(event.target))menu.open=false;});
 const canLeave=()=>window.dispatchEvent(new CustomEvent('library-kiosk-navigation',{cancelable:true}));
+const sortMenu=document.querySelector<HTMLSelectElement>('#kiosk-sort');
+const booksById=new Map(books.map(book=>[String(book.id),book]));
+let currentSort:BookSort='title';
+let currentSearch='';
+function orderChoices(sort:BookSort){
+ choices.sort((a,b)=>compareBooks(booksById.get(a.dataset.selectBook!)!,booksById.get(b.dataset.selectBook!)!,sort,currentSearch));
+ choices.forEach(choice=>shelf?.appendChild(choice));
+ if(shelf)shelf.scrollLeft=0;
+ updateShelf();
+}
+orderChoices(currentSort);
+sortMenu?.addEventListener('change',()=>{
+ if(!canLeave()){sortMenu.value=currentSort;return;}
+ currentSort=sortMenu.value as BookSort;
+ orderChoices(currentSort);
+ if(status)status.textContent=`Books sorted by ${sortMenu.selectedOptions[0].textContent}`;
+});
 const canonical=(raw:string)=>{const isbn=raw.replace(/[\s-]/g,'').toUpperCase();if(isbn.length!==10)return isbn;const body=`978${isbn.slice(0,9)}`;return body+(10-[...body].reduce((sum,n,i)=>sum+Number(n)*(i%2?3:1),0)%10)%10;};
-function selectBook(id:string,reveal=false,focus=true){const accepted=window.dispatchEvent(new CustomEvent('library-kiosk-select',{detail:{bookId:Number(id)},cancelable:true}));if(!accepted)return;if(focus)focused=true;choices.forEach(c=>{const active=c.dataset.selectBook===id;c.classList.toggle('is-selected',active);c.setAttribute('aria-pressed',String(active));});panels.forEach(p=>p.hidden=p.dataset.bookDetail!==id);const panel=panels.find(p=>p.dataset.bookDetail===id);if(status)status.textContent=`Selected ${panel?.querySelector('h2')?.textContent||'book'}`;const detailLink=document.querySelector<HTMLAnchorElement>('#selected-details');if(detailLink){detailLink.href=`/books/${id}/`;detailLink.setAttribute('aria-label',`Book details for ${panel?.querySelector('h2')?.textContent||'selected book'}`);}const choice=choices.find(c=>c.dataset.selectBook===id);if(matchMedia('(max-width:700px)').matches)choice?.scrollIntoView({block:'nearest',inline:'center'});if(reveal&&matchMedia('(max-width:700px)').matches)document.querySelector('#selected-book')?.scrollIntoView({block:'start'});}
-function filter(){if(!canLeave())return;focused=false;const q=(input?.value||'').trim().toLowerCase();let count=0;choices.forEach(c=>{c.hidden=!!q&&!c.dataset.search?.includes(q);if(!c.hidden)count++;});document.querySelector('#book-count')!.textContent=`${count} ${count===1?'book':'books'}`;(document.querySelector('#no-results') as HTMLElement).hidden=count>0||!choices.length;(document.querySelector('#clear-search') as HTMLButtonElement).hidden=!q;const taskBar=document.querySelector<HTMLElement>('#selected-book');if(taskBar)taskBar.hidden=count===0;const active=choices.find(c=>c.classList.contains('is-selected'));const first=choices.find(c=>!c.hidden);if(first&&(!active||active.hidden))selectBook(first.dataset.selectBook||'',false,false);}
+function selectBook(id:string,reveal=false,focus=true){const accepted=window.dispatchEvent(new CustomEvent('library-kiosk-select',{detail:{bookId:Number(id)},cancelable:true}));if(!accepted)return;if(focus)focused=true;choices.forEach(c=>{const active=c.dataset.selectBook===id;c.classList.toggle('is-selected',active);c.setAttribute('aria-pressed',String(active));});panels.forEach(p=>p.hidden=p.dataset.bookDetail!==id);const panel=panels.find(p=>p.dataset.bookDetail===id);if(status)status.textContent=`Selected ${panel?.querySelector('h2')?.textContent||'book'}`;const detailLink=document.querySelector<HTMLAnchorElement>('#selected-details');if(detailLink){detailLink.href=`/books/${id}/`;detailLink.setAttribute('aria-label',`Book details for ${panel?.querySelector('h2')?.textContent||'selected book'}`);}if(reveal&&matchMedia('(max-width:700px)').matches)void tick().then(()=>document.querySelector('#selected-book')?.scrollIntoView({block:'start'}));}
+function filter(){if(!canLeave())return;focused=false;const q=(input?.value||'').trim().toLowerCase();currentSearch=q;orderChoices(currentSort);let count=0;choices.forEach(c=>{c.hidden=!!q&&!c.dataset.search?.includes(q);if(!c.hidden)count++;});document.querySelector('#book-count')!.textContent=`${count} ${count===1?'book':'books'}`;(document.querySelector('#no-results') as HTMLElement).hidden=count>0||!choices.length;(document.querySelector('#clear-search') as HTMLButtonElement).hidden=!q;const taskBar=document.querySelector<HTMLElement>('#selected-book');if(taskBar)taskBar.hidden=count===0;const active=choices.find(c=>c.classList.contains('is-selected'));const first=choices.find(c=>!c.hidden);if(first&&(!active||active.hidden))selectBook(first.dataset.selectBook||'',false,false);}
 choices.forEach(c=>c.addEventListener('click',()=>selectBook(c.dataset.selectBook||'',true)));
 input?.addEventListener('input',()=>{if(!/^[\d\s-]+[Xx]?$/.test(input.value))filter();});
 input?.addEventListener('focus',()=>{if(scanner)scanner.textContent='Ready to scan';const feedback=document.querySelector('#scan-feedback');if(feedback)feedback.textContent='Scanner ready';document.querySelector('.scan-field label')!.textContent='Scan a book';});
@@ -38,11 +56,18 @@ scanner?.addEventListener('click',()=>input?.focus());
 document.querySelector('#clear-search')?.addEventListener('click',()=>{if(input)input.value='';filter();input?.focus();});
 document.querySelector('.scan-dock')?.addEventListener('submit',event=>{event.preventDefault();const code=(input?.value||'').trim().replace(/[\s-]/g,'').toUpperCase();if(!/^(?:\d{9}[\dX]|\d{13})$/.test(code)){filter();const visible=choices.filter(c=>!c.hidden);if(visible.length===1)selectBook(visible[0].dataset.selectBook||'',true);return;}const match=choices.find(c=>canonical(c.dataset.isbn||'')===canonical(code));if(match){if(input)input.value='';filter();selectBook(match.dataset.selectBook||'',true);input?.focus({preventScroll:true});if(scanner)scanner.textContent='Ready for next book';}else if(canLeave())location.assign(`/scan/?isbn=${encodeURIComponent(code)}`);});
 document.addEventListener('click',event=>{const link=event.target instanceof Element?event.target.closest<HTMLAnchorElement>('a[href]'):null;if(link&&!link.getAttribute('href')?.startsWith('#')&&!canLeave())event.preventDefault();});
-document.querySelector('.back-to-books')?.addEventListener('click',()=>{focused=false;document.querySelector('.scan-dock')?.scrollIntoView({block:'start'});input?.focus({preventScroll:true});});
+document.querySelector('.back-to-books')?.addEventListener('click',async()=>{
+ if(!canLeave())return;
+ focused=false;
+ await tick();
+ const choice=choices.find(c=>c.classList.contains('is-selected')&&!c.hidden);
+ if(matchMedia('(max-width:700px)').matches){choice?.scrollIntoView({block:'center'});choice?.focus({preventScroll:true});}
+ else{document.querySelector('.scan-dock')?.scrollIntoView({block:'start'});input?.focus({preventScroll:true});}
+});
 window.addEventListener('library-kiosk-ready',()=>{const id=panels.find(p=>!p.hidden)?.dataset.bookDetail;if(id)window.dispatchEvent(new CustomEvent('library-kiosk-select',{detail:{bookId:Number(id)},cancelable:true}));});
 window.addEventListener('library-kiosk-complete',event=>{input?.focus({preventScroll:true});const detail=(event as CustomEvent).detail;const feedback=document.querySelector('#scan-feedback');if(feedback)feedback.textContent=detail?.action==='return'?'Returned. Ready for the next book.':'Lent. Ready for the next book.';});
 
-input?.focus();
+if(matchMedia('(min-width:701px)').matches)input?.focus();
 if(books[0])selectBook(String(books[0].id),false,false);
 }
 </script>
@@ -51,13 +76,14 @@ if(books[0])selectBook(String(books[0].id),false,false);
 <header class="app-bar">
 <form class="scan-dock" role="search">
   <svg class="scan-symbol" viewBox="0 0 40 40" aria-hidden="true"><path d="M3 12V3h9m16 0h9v9m0 16v9h-9m-16 0H3v-9M11 10v20m5-20v20m5-20v20m4-20v20m5-20v20"/></svg>
-  <div class="scan-field"><div class="scan-heading"><label for="kiosk-search">Scan a book</label><span class="scanner-guide"><span class="ready-dot" aria-hidden="true"></span><span id="scan-feedback">Scanner ready</span><span id="scan-state" class="sr-only" aria-live="polite">Ready to scan</span></span></div><div class="scan-input-row"><input id="kiosk-search" type="search" autocomplete="off" placeholder="ISBN, title or author" autofocus aria-label="Scan ISBN or search title or author"/><button class="scan-submit" type="submit">Find book</button></div></div>
+  <div class="scan-field"><div class="scan-heading"><label for="kiosk-search">Scan a book</label><span class="scanner-guide"><span class="ready-dot" aria-hidden="true"></span><span id="scan-feedback">Scanner ready</span><span id="scan-state" class="sr-only" aria-live="polite">Ready to scan</span></span></div><div class="scan-input-row"><input id="kiosk-search" type="search" autocomplete="off" placeholder="ISBN, title or author" aria-label="Scan ISBN or search title or author"/><button class="scan-submit" type="submit">Find book</button></div></div>
 </form>
 
 </header>
 <main class="workspace" class:is-focused={focused}>
   <section id="collection" class="collection" aria-label="Books in your library" tabindex="-1">
     <div class="collection-heading"><h1><LibraryMark size={28}/>Your library <span id="book-count">{books.length} books</span></h1>{#if selected}<a id="selected-details" href={`/books/${selected.id}/`}>Book details <span aria-hidden="true">↗</span></a>{/if}<nav aria-label="Library tools"><KioskLoansLink/><details class="tools-menu"><summary>Manage <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></summary><div><a href="/scan/">Add book</a><a href="/catalogue/">Browse by subject &amp; search</a><a href="/discover/">Explore ideas</a><a href="/shelves/">Shelves</a><a href="/borrowers/">Borrowers</a><a href="/settings/">Settings</a></div></details></nav><div class="shelf-navigation"><button id="previous-books" type="button" aria-label="Previous books"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button><button id="next-books" type="button" aria-label="Next books"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button></div><button type="button" id="clear-search" hidden>Show all books</button></div>
+    <div class="collection-sorting"><label for="kiosk-sort">Sort by</label><select id="kiosk-sort"><option value="title">Title A–Z</option><option value="title_desc">Title Z–A</option><option value="author">Author A–Z</option><option value="author_desc">Author Z–A</option><option value="first_published_newest">First published: newest</option><option value="first_published_oldest">First published: oldest</option></select></div>
     <div class="book-grid">
       {#each books as book}<button class="book-choice" class:is-selected={book.id===selected?.id} type="button" data-select-book={book.id} data-isbn={book.isbn} data-search={`${book.title} ${book.subtitle} ${book.authors.join(' ')}`.toLowerCase()} aria-pressed={book.id===selected?.id} aria-label={`Select ${book.title}`} aria-controls="selected-book">
         <span class="cover-space"><span class="jacket">{#if book.cover_url}<img src={book.cover_url} alt=""/>{:else}<span class="missing-cover" aria-label="No cover image"><span>{shortTitle(book.title)}</span><small>{book.authors[0]}</small></span>{/if}</span><KioskBookStatus bookId={book.id}/></span>
@@ -129,4 +155,31 @@ nav{display:flex;align-items:center;gap:12px}.return-action{display:flex;align-i
 @media(max-width:1000px){.scanner-guide{display:flex}.scan-symbol{width:42px}.scan-field label{font-size:28px}.scan-field input{font-size:20px}.scan-submit{display:flex;min-width:130px;font-size:18px;padding:0 16px}.app-bar{padding-inline:24px}}
 @media(max-width:700px){.app-bar{padding:16px}.scan-dock{height:124px;padding:12px;gap:12px}.scan-symbol{display:none}.scan-field label{font-size:26px}.scanner-guide{display:none}.scan-field input{font-size:17px;padding-inline:12px}.scan-submit{display:flex;min-width:82px;font-size:16px;padding:0 12px}.workspace.is-focused .task-bar{padding:0 20px 24px}.workspace.is-focused .focus-nav .back-to-books{font-size:16px;padding:0 12px;min-height:52px}.focus-nav :global(a){padding:6px 10px;min-height:52px}.focus-nav{gap:10px;min-height:56px}}
 .cover-space:has(:global(.on-loan)) .jacket{filter:brightness(.78) saturate(.7)}
+
+/* Phone browsing uses the document's vertical scroll, with no sideways shelf. */
+@media(max-width:700px){
+ :global(.library-kiosk){height:auto;min-height:100svh;overflow:visible}
+ .workspace,.workspace.is-focused{flex:none;min-height:0;overflow:visible}
+ .collection{overflow:visible;container-type:normal;padding:0 16px 24px}
+ .collection-heading{height:auto;padding:0;gap:8px}
+ .collection-heading h1{flex-wrap:wrap;white-space:normal;gap:8px;font-size:26px}
+ .collection-heading nav{width:100%;min-width:0;flex-wrap:wrap;justify-content:space-between}
+ .book-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 16px;padding:12px 6px 20px;overflow:visible;scroll-snap-type:none}
+ .book-choice{width:100%;max-width:100%;min-width:0;align-items:center;text-align:center;gap:12px}
+ .cover-space{--cover-height:clamp(150px,52vw,235px);height:var(--cover-height);width:100%;max-width:100%}
+ .jacket,.jacket img{max-width:100%}
+ .jacket img{object-fit:contain}
+ .missing-cover{width:calc(var(--cover-height)*2/3);max-width:100%;font-size:clamp(19px,6vw,27px);overflow-wrap:anywhere}
+ .missing-cover small{font-size:12px}
+ .caption{width:100%;min-width:0;max-width:100%;overflow-wrap:anywhere}
+ .book-title{font-size:16px}
+ .book-subtitle{font-size:13px}
+ .workspace.is-focused .task-bar{padding:0 16px 24px}
+ .focus-nav{flex-wrap:wrap}
+ .scan-dock{width:100%;height:auto;min-height:124px}
+ .scan-submit{flex:none;width:auto}
+}
+.collection-sorting{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 16px;color:var(--app-muted)}
+.collection-sorting select{min-height:44px;max-width:100%;padding:8px 32px 8px 12px;border:1px solid var(--app-line);border-radius:4px;background:var(--app-surface);color:var(--app-ink)}
+.collection-sorting select:focus-visible{outline:3px solid var(--app-accent);outline-offset:3px}
 </style>
