@@ -14,7 +14,6 @@ import (
 	"home-library/internal/metrics"
 	"home-library/internal/store"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -23,52 +22,35 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
-	"time"
 )
 
 type Server struct {
-	Version         string
-	Commit          string
-	MaintenancePath string
-	ActiveWrites    atomic.Int64
-	BackupDirectory string
-	Store           *store.Store
-	Metadata        *metadata.Client
-	Web             string
-	Covers          *covers.Service
-	Enrichment      *catalogue.EnrichmentService
-	Pages           interface {
+	Lifecycle         context.Context
+	backgroundMu      sync.Mutex
+	backgroundBooks   map[int64]struct{}
+	backgroundRunning bool
+	Version           string
+	Commit            string
+	MaintenancePath   string
+	ActiveWrites      atomic.Int64
+	BackupDirectory   string
+	Store             *store.Store
+	Metadata          *metadata.Client
+	Web               string
+	Covers            *covers.Service
+	Enrichment        *catalogue.EnrichmentService
+	Pages             interface {
 		Ensure(context.Context) error
 		Directory() string
 	}
 }
 
-// Inventory remains authoritative if publishing fails. A book route retries
-// publication and returns 503 rather than silently serving stale metadata.
+// Saving acknowledges only durable database work; derived covers/pages follow.
 func (s *Server) publish(w http.ResponseWriter, r *http.Request, b store.Book) {
-	if s.Covers != nil && b.CoverURL == "" && b.ISBN != "" {
-		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
-		if e := metrics.Measure(r.Context(), "cover", func() error { _, err := s.Covers.Fetch(ctx, b.ID); return err }); e != nil {
-			log.Printf("Cover lookup for book %d failed (%T)", b.ID, e)
-		}
-		cancel()
-		if fresh, e := s.Store.Book(r.Context(), b.ID); e == nil {
-			b = fresh
-		}
-	}
-	if s.Pages != nil {
-		if e := metrics.Measure(r.Context(), "publication", func() error { return s.Pages.Ensure(context.WithoutCancel(r.Context())) }); e != nil {
-			log.Printf("Publish book %d failed (%T)", b.ID, e)
-			if trace := metrics.Get(r.Context()); trace != nil {
-				w.Header().Set("Server-Timing", trace.Header())
-			}
-			jsonResponse(w, 202, struct {
-				store.Book
-				Warning string `json:"page_warning"`
-			}{b, "Book saved, but its page could not be updated. Retry saving or open the book to retry; no extra copy will be created."})
-			return
-		}
+	if s.Pages != nil || s.Covers != nil {
+		s.queuePublication(b.ID)
 	}
 	if trace := metrics.Get(r.Context()); trace != nil {
 		w.Header().Set("Server-Timing", trace.Header())
@@ -416,26 +398,13 @@ func (s *Server) Handler() http.Handler {
 			http.Error(w, "Book page generation is not configured", 503)
 			return
 		}
-		if e := s.Pages.Ensure(r.Context()); e != nil {
-			http.Error(w, "Book page generation failed. Your record is saved; retry or check the local build setup.", 503)
-			return
-		}
-		w.Header().Set("Cache-Control", "no-cache")
-		http.ServeFile(w, r, filepath.Join(s.Pages.Directory(), "books", strconv.FormatInt(id(r), 10), "index.html"))
+		w.Header().Set("Cache-Control", "no-store")
+		http.ServeFile(w, r, filepath.Join(s.Pages.Directory(), "book-view", "index.html"))
 	})
 	m.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		web := s.Web
 		if s.Pages != nil {
-			// The kiosk homepage embeds the catalogue snapshot. Never serve its
-			// previous generation after a saved deletion if rebuilding fails.
-			// Settings and other dynamic shells stay accessible for recovery.
-			if r.URL.Path == "/" || r.URL.Path == "/index.html" {
-				if e := s.Pages.Ensure(r.Context()); e != nil {
-					w.Header().Set("Cache-Control", "no-store")
-					http.Error(w, "Library pages are being rebuilt. Please retry. Settings remains available at /settings/ to restore a book.", http.StatusServiceUnavailable)
-					return
-				}
-			}
+
 			web = s.Pages.Directory()
 		}
 		if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".html") {

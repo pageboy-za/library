@@ -36,7 +36,7 @@ jobs:
           npm ci --no-audit --no-fund
           npm run check
           LIBRARY_APP_VERSION="$RELEASE_VERSION" npm run build
-          python3 ../deploy/check-page-version.py "$RELEASE_VERSION" dist index.html settings/index.html scan/index.html
+          python3 ../deploy/check-page-version.py "$RELEASE_VERSION" dist index.html settings/index.html scan/index.html book-view/index.html
       - name: Check secrets and updater rejection cases
         run: |
           set -eu

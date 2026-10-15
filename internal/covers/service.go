@@ -180,6 +180,16 @@ func (s *Service) Upload(ctx context.Context, id int64, data []byte) (store.Cove
 // Fetch limits alternatives to cover IDs attached to the exact edition. It
 // deliberately does not substitute another edition merely sharing a title.
 func (s *Service) Fetch(ctx context.Context, id int64) ([]store.CoverAsset, error) {
+	return s.fetch(ctx, id, true)
+}
+
+// Find caches choices without changing the saved cover. Selection is a separate
+// user action, even when the book has no cover yet.
+func (s *Service) Find(ctx context.Context, id int64) ([]store.CoverAsset, error) {
+	return s.fetch(ctx, id, false)
+}
+
+func (s *Service) fetch(ctx context.Context, id int64, selectMissing bool) ([]store.CoverAsset, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	book, e := s.Store.Book(ctx, id)
@@ -239,7 +249,7 @@ func (s *Service) Fetch(ctx context.Context, id int64) ([]store.CoverAsset, erro
 			lastError = e
 			continue
 		}
-		_, e = s.save(ctx, store.CoverAsset{BookID: id, SourceKind: "openlibrary", SourceCoverID: &coverID, SourceEditionID: source}, data, true, true)
+		_, e = s.save(ctx, store.CoverAsset{BookID: id, SourceKind: "openlibrary", SourceCoverID: &coverID, SourceEditionID: source}, data, selectMissing, true)
 		if e != nil {
 			lastError = e
 		}
@@ -253,7 +263,7 @@ func (s *Service) Fetch(ctx context.Context, id int64) ([]store.CoverAsset, erro
 		if len(cached) == 0 {
 			data, e = s.get(ctx, "https://covers.openlibrary.org/b/isbn/"+book.ISBN+"-L.jpg?default=false", MaxImageBytes)
 			if e == nil {
-				_, e = s.save(ctx, store.CoverAsset{BookID: id, SourceKind: "openlibrary-isbn", SourceEditionID: source}, data, true, true)
+				_, e = s.save(ctx, store.CoverAsset{BookID: id, SourceKind: "openlibrary-isbn", SourceEditionID: source}, data, selectMissing, true)
 			}
 			lastError = e
 		}

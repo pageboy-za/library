@@ -1,0 +1,5 @@
+---
+import Layout from '../layouts/LibraryLayout.astro';
+import LiveBook from '../components/library/LiveBook.svelte';
+---
+<Layout title="Book" hideHeader={true}><LiveBook client:only="svelte"/></Layout>

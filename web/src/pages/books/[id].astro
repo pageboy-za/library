@@ -4,6 +4,7 @@ import CoverPicker from '../../components/library/CoverPicker.svelte';
 import DiscoveryEditor from '../../components/library/DiscoveryEditor.svelte';
 import BookWorkspace from '../../components/library/BookWorkspace.svelte';
 import QuickScan from '../../components/library/QuickScan.svelte';
+import IsbnCopy from '../../components/library/IsbnCopy.astro';
 import {bookSnapshot,type StaticBook} from '../../lib/bookSnapshot';
 export function getStaticPaths(){return bookSnapshot().map(book=>({params:{id:String(book.id)},props:{book}}));}
 const {book}=Astro.props as {book:StaticBook};
@@ -25,7 +26,7 @@ const {book}=Astro.props as {book:StaticBook};
       <dl class="book-page_facts">
         <div><dt>Publisher</dt><dd>{book.publisher||'Not recorded'}</dd></div>
         <div><dt>Published</dt><dd>{book.publication_date||'Not recorded'}</dd></div>
-        <div><dt>ISBN</dt><dd>{book.isbn||'No ISBN'}</dd></div>
+        <div class="book-page_isbn"><dt>ISBN</dt><dd>{book.isbn?<IsbnCopy isbn={book.isbn}/>: 'No ISBN'}</dd></div>
       </dl>
       <div class="book-page_actions"><button type="button" data-edit-book={book.id} aria-expanded="false">Edit details</button></div>
     </header>
@@ -56,6 +57,7 @@ const {book}=Astro.props as {book:StaticBook};
   .book-page h1 {font-family:var(--app-serif,Georgia,serif);font-weight:400;font-size:clamp(2rem,3.4vw,2.75rem);line-height:1.08;letter-spacing:-.025em;max-width:36ch;overflow-wrap:anywhere;}
   .book-page_authors {font-size:1.0625rem;color:var(--app-muted,var(--text-2));}
   .book-page_facts {display:grid;gap:.375rem;max-width:32rem;margin-top:.625rem;font-size:.875rem;div{display:grid;grid-template-columns:5.5rem minmax(0,1fr);align-content:start;gap:1rem;}dt{color:var(--app-muted,var(--text-2));font-size:.875rem;}dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}}
+  .book-page_facts .book-page_isbn {align-items:center;}
   .book-page_actions {display:flex;gap:1.25rem;button{min-height:2.75rem;padding:.5rem 0;background:transparent;border:0;font-size:.875rem;color:var(--app-muted,var(--text-2));text-decoration:underline;text-underline-offset:.2em;}}
   .book-page_secondary {display:grid;gap:1rem;padding-top:1.25rem;border-top:1px solid var(--app-line,var(--border));min-width:0;}
   .book-page_secondary :global(details) {max-width:100%;font-size:.875rem;}

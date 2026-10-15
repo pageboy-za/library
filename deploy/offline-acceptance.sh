@@ -113,6 +113,7 @@ try:
         shelves = request("/api/shelves", {"bookcase":"Acceptance case", "name":"Acceptance shelf"}, "POST")
         shelf = next(item for item in shelves if item["name"] == "Acceptance shelf")
         book = request("/api/books", {"title":"Offline acceptance fixture", "authors":["Fixture Author"], "publisher":"Fixture Press", "publication_date":"2026", "shelf_id":shelf["id"], "request_key":key()}, "POST")
+        assert b"kiosk-search" in request("/"), "Live shell is not compatible with updater readiness"
         book_id = book["id"]; assert book["count"] == 1 and book["isbn"] == "" and book["publication_date"] == "2026"
         boundary = "offline-fixture-" + uuid.uuid4().hex
         multipart = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"fixture.png\"\r\nContent-Type: image/png\r\n\r\n".encode() + fixture_png() + f"\r\n--{boundary}--\r\n".encode())
@@ -126,14 +127,16 @@ try:
             scan = request("/api/isbn/9781857028898"); assert scan["existing"]["id"] == book_id and scan["existing"]["count"] == 1
         book = request(f"/api/books/{book_id}/copies", {"shelf_id":shelf["id"], "request_key":key()}, "POST"); assert book["count"] == 2
         borrower = request("/api/borrowers", {"name":"Fixture borrower", "notes":"Synthetic borrower", "request_key":key()}, "POST")
-        html_before = request(f"/books/{book_id}/"); assert b"Offline revised fixture" in html_before and b"2026" in html_before and b"astro-island" in html_before
+        html_before = request(f"/books/{book_id}/"); assert b"astro-island" in html_before
+        current = request(f"/api/books/{book_id}"); assert current["title"] == "Offline revised fixture" and current["publication_date"] == "2026"
         loan = request("/api/loans", {"copy_id":book["copies"][0]["id"], "borrower_id":borrower["id"], "due_date":"", "request_key":key()}, "POST")
         checked = request(f"/api/books/{book_id}"); assert checked["available"] == 1 and checked["copies"][0]["out"] and checked["copies"][0]["shelf_id"] == shelf["id"]
-        assert request(f"/books/{book_id}/") == html_before, "Lending changed static metadata HTML"
+        assert request(f"/books/{book_id}/") == html_before, "Lending changed the reusable book shell"
         discovery = request(f"/api/books/{book_id}/discovery")
         discovery.update(description="Synthetic public description", subjects=["Offline acceptance"], notes="PRIVATE_FIXTURE_NOTE_43", tags=["private fixture"])
         saved = request(f"/api/books/{book_id}/discovery", discovery, "PATCH"); assert not saved.get("page_warning")
-        html = request(f"/books/{book_id}/"); assert b"Synthetic public description" in html and b"PRIVATE_FIXTURE_NOTE_43" not in html
+        html = request(f"/books/{book_id}/"); assert b"PRIVATE_FIXTURE_NOTE_43" not in html
+        assert request(f"/api/books/{book_id}/discovery")["description"] == "Synthetic public description"
         assert request("/api/books?q=Fixture%20Author")["total"] == 1
         archive = stage / "verified-backup"; restored = stage / "restored-data"
         backup("create", "-data", data, "-out", archive); backup("verify", "-backup", archive)
@@ -143,12 +146,13 @@ try:
         assert recovered["count"] == 2 and recovered["available"] == 1 and recovered["cover_url"] == cover_url
         assert hashlib.sha256(request(cover_url)).hexdigest() == cover_hash
         assert request(f"/api/books/{book_id}/discovery")["notes"] == "PRIVATE_FIXTURE_NOTE_43"
-        assert b"Synthetic public description" in request(f"/books/{book_id}/")
+        assert b"astro-island" in request(f"/books/{book_id}/")
+        assert request(f"/api/books/{book_id}/discovery")["description"] == "Synthetic public description"
         assert request("/api/isbn/9781857028898")["existing"]["count"] == 2
         request(f"/api/loans/{loan['id']}/return", {"request_key":key()}, "POST")
         assert request(f"/api/books/{book_id}")["available"] == 2
         stop()
-        print("PASS: real app offline lookup fallback, manual/year-only entry, local cover, ISBN rescans, explicit copies, shelves, checkout/return, static metadata/islands, private-note exclusion, consistent backup/verify/restore and offline restart")
+        print("PASS: real app offline lookup fallback, manual/year-only entry, local cover, ISBN rescans, explicit copies, shelves, checkout/return, live metadata/reusable islands, private-note exclusion, consistent backup/verify/restore and offline restart")
         print("Disposable data removed. No household paths, downloads, service installation or external provider requests.")
 finally:
     stop(); proxy.shutdown(); proxy.server_close(); proxy_thread.join(timeout=3)

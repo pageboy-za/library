@@ -3,6 +3,7 @@ package covers
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"home-library/internal/store"
 	"image"
 	"image/color"
@@ -12,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -181,5 +183,74 @@ func TestAssetServingBlocksDirectoryAndMultipartLimit(t *testing.T) {
 	mux.ServeHTTP(w, httptest.NewRequest("POST", "/api/books/1/covers/upload", strings.NewReader("invalid")))
 	if w.Code != 400 {
 		t.Fatal(w.Code)
+	}
+}
+
+func TestFindCoversWaitsForExplicitSelection(t *testing.T) {
+	for _, initial := range []string{"none", "saved", "isbn-fallback"} {
+		t.Run(initial, func(t *testing.T) {
+			s, id := setup(t)
+			ctx := context.Background()
+			if initial == "saved" {
+				if _, err := s.Upload(ctx, id, testImage(color.Black)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, err := s.Store.Book(ctx, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.HTTP = &http.Client{Transport: transportFunc(func(r *http.Request) (*http.Response, error) {
+				s.last = time.Now().Add(-time.Second)
+				body := []byte(`{"key":"/books/OL123M","covers":[123,456]}`)
+				if initial == "isbn-fallback" {
+					body = []byte(`{"key":"/books/OL123M","covers":[]}`)
+				}
+				if r.URL.Host == "covers.openlibrary.org" {
+					body = testImage(color.White)
+					if strings.Contains(r.URL.Path, "456") {
+						body = testImage(color.RGBA{R: 255, A: 255})
+					}
+				}
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(body)), Header: http.Header{}}, nil
+			})}
+			published := 0
+			mux := http.NewServeMux()
+			s.Register(mux, func(context.Context) error { published++; return nil })
+			for i := 0; i < 2; i++ {
+				w := httptest.NewRecorder()
+				mux.ServeHTTP(w, httptest.NewRequest("POST", "/api/books/1/covers/fetch", strings.NewReader(`{}`)))
+				if w.Code != 200 {
+					t.Fatal(w.Code, w.Body.String())
+				}
+			}
+			after, err := s.Store.Book(ctx, id)
+			if err != nil || !reflect.DeepEqual(before, after) || published != 0 {
+				t.Fatal("finding covers changed the book or published pages", before, after, published, err)
+			}
+			assets, err := s.Store.Covers(ctx, id)
+			want := 2
+			if initial == "saved" {
+				want = 3
+			}
+			if initial == "isbn-fallback" {
+				want = 1
+			}
+			if err != nil || len(assets) != want {
+				t.Fatal("missing cover choices", assets, err)
+			}
+			chosen := assets[len(assets)-1]
+			if chosen.Selected {
+				t.Fatal("alternative was selected automatically")
+			}
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest("POST", "/api/books/1/covers/select", strings.NewReader(fmt.Sprintf(`{"asset_id":%d}`, chosen.ID)))
+			r.Header.Set("Content-Type", "application/json")
+			mux.ServeHTTP(w, r)
+			selected, err := s.Store.SelectedCoverURL(ctx, id)
+			if w.Code != 200 || err != nil || selected != chosen.URL || published != 1 {
+				t.Fatal("explicit choice did not save and publish", w.Code, selected, published, err)
+			}
+		})
 	}
 }

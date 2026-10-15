@@ -54,12 +54,14 @@ func main() {
 		if ctx.Err() != nil {
 			return
 		}
-		if _, existing := os.Stat(filepath.Join(pages.Directory(), "index.html")); existing != nil {
-			log.Fatal(e)
+		for _, required := range []string{"index.html", "book-view/index.html"} {
+			if _, existing := os.Stat(filepath.Join(pages.Directory(), required)); existing != nil {
+				log.Fatal(e)
+			}
 		}
 		log.Printf("Using previous static output; regeneration needs repair: %v", e)
 	}
-	apiServer := &httpapi.Server{Store: s, Metadata: metadata.NewWithCache(filepath.Join(*data, "metadata")), Web: *web, BackupDirectory: *backupDirectory, Pages: pages, Covers: coverService, Version: version, Commit: commit, MaintenancePath: *maintenance}
+	apiServer := &httpapi.Server{Lifecycle: ctx, Store: s, Metadata: metadata.NewWithCache(filepath.Join(*data, "metadata")), Web: *web, BackupDirectory: *backupDirectory, Pages: pages, Covers: coverService, Version: version, Commit: commit, MaintenancePath: *maintenance}
 	srv := &http.Server{Addr: *addr, Handler: apiServer.Handler(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	go func() {
 		<-ctx.Done()

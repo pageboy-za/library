@@ -19,10 +19,10 @@ Current metadata, enrichment and cover clients use Go's default HTTP transport, 
 - An uncached ISBN fails quickly and offers manual entry.
 - A manual book without an ISBN accepts a year-only publication date and a shelf.
 - A generated synthetic PNG uploads locally, becomes the selected cover and is served as a normalized JPEG.
-- A metadata edit generates static book HTML containing the new title/year and Svelte island markup.
+- A metadata edit is immediately available from the API; its reusable book shell loads Svelte without waiting for static generation.
 - Assigning an ISBN preserves the chosen cover; repeated ISBN scans open the same record without adding copies. Another physical copy is added explicitly.
-- Checkout changes live inventory availability/shelf status while the static metadata HTML remains unchanged.
-- A public description appears in generated HTML; private notes are excluded and remain in the local API.
+- Checkout changes live inventory availability/shelf status while the reusable book shell remains unchanged.
+- The saved description is available through the local API; private notes never appear in the reusable HTML shell.
 - Author search finds the saved book.
 - The backup utility creates and verifies a consistent backup while the fixture server runs, restores to a separate clean folder, and starts a new offline instance.
 - Restored copies, an outstanding loan, private notes, static pages and cover bytes remain intact. Returning the loan restores availability.

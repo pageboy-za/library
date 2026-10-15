@@ -39,10 +39,11 @@ Books without ISBNs can be entered manually. Do not concatenate the price supple
 - `internal/covers`: locally cached cover downloads, selection and validated uploads.
 - `internal/catalogue`: shared explained discovery service.
 - `internal/mcpserver` and `cmd/library-mcp`: read-only local stdio MCP tools.
-- `web/src/pages/books/[id].astro`: one static metadata/cover page per stable book ID.
+- `web/src/pages/book-view.astro`: reusable live book shell; `LiveBook.svelte` reads the current saved record.
+- `web/src/pages/books/[id].astro`: derived static metadata snapshots retained for generated output.
 - `web/src/components/library`: live Svelte search, inventory, lending, cover picker and editor controls.
 
-Go serves the site and database API; Node/Astro now run on the device only to regenerate pages. Start `./bin/library` from the repository root with `web/node_modules` installed. `-web` points to Astro source (default `web`), not `web/dist`. Startup generates existing book pages; add/edit/cover changes regenerate automatically. A build uses a SQLite metadata snapshot and publishes only complete output. Pages live under `data/pages/current`, with the current generation, two predecessors and a one-hour grace period retained for in-flight reads. Fingerprinted island assets are kept in a shared derived cache so older pages can still hydrate after code updates. They are derived data and can be rebuilt. Build failure preserves the committed record and old pages, shows a warning, and retries when the book is opened.
+Go serves the site and database API; Node/Astro now run on the device only to regenerate pages. Start `./bin/library` from the repository root with `web/node_modules` installed. `-web` points to Astro source (default `web`), not `web/dist`. Startup generates existing book pages; add/edit/cover changes regenerate automatically. A build uses a SQLite metadata snapshot and publishes only complete output. Pages live under `data/pages/current`, with the current generation, two predecessors and a one-hour grace period retained for in-flight reads. Fingerprinted island assets are kept in a shared derived cache so older pages can still hydrate after code updates. They are derived data and can be rebuilt. Book saves return after the database commits. Cover lookup and static generation run in a coalescing background worker, tracked as active writes for updater safety. Startup reconstructs interrupted derived work; a later save also retries failed generation. Book and kiosk views use reusable Astro shells with Svelte reading current records from the local API, so opening a newly saved or edited book never waits for a build. Build failure preserves the committed record and the previous complete shell.
 
 Shelf/copy/loan changes are fetched by Svelte and require no build. Inspect View Source at `/books/1/`: the title/authors/publisher/date/cover are already HTML; inventory controls hydrate and fetch current status. Existing `/book/?id=1` links redirect.
 
@@ -100,7 +101,7 @@ device certificate trust; the application itself remains on loopback.
 
 Startup validates the supported core schema, keys and required constraints before applying additive migrations in one transaction. Future or incompatible databases are refused; failed upgrades roll back. Take a verified backup before deploying schema changes.
 
-Manual entry preserves its draft when returning to the scanner and suggests local title matches without blocking save. A committed save with failed static generation shows a saved receipt and a retry link; the new-book form cannot accidentally create another copy. Reviewed source metadata persists on edits; changing an ISBN clears stale provider provenance. Physical-keyboard and scanner checks remain outstanding.
+Manual entry preserves its draft when returning to the scanner and suggests local title matches without blocking save. A committed save opens the live book view immediately, even while static generation is slow or has failed; request-key and ISBN replay protection prevent duplicate copies. Reviewed source metadata persists on edits; changing an ISBN clears stale provider provenance. Physical-keyboard and scanner checks remain outstanding.
 
 Source release packaging and its checks are documented in [RELEASE_README.md](RELEASE_README.md). The package excludes household data and installed dependencies; install frontend dependencies on the target Pi and transfer library data separately through verified backup/restore.
 

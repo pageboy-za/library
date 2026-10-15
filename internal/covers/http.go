@@ -132,11 +132,16 @@ func (s *Service) Register(m *http.ServeMux, changed func(context.Context) error
 		respond(w, 200, map[string]any{"assets": assets})
 	})
 	m.HandleFunc("POST /api/books/{id}/covers/fetch", func(w http.ResponseWriter, r *http.Request) {
-		if _, e := s.Fetch(r.Context(), id(r)); e != nil {
+		if _, e := s.Find(r.Context(), id(r)); e != nil {
 			fail(w, e)
 			return
 		}
-		result(w, r)
+		assets, e := s.Assets(r.Context(), id(r))
+		if e != nil {
+			fail(w, e)
+			return
+		}
+		respond(w, 200, map[string]any{"assets": assets})
 	})
 	m.HandleFunc("POST /api/books/{id}/covers/select", func(w http.ResponseWriter, r *http.Request) {
 		var in struct {

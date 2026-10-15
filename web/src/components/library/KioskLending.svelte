@@ -1,6 +1,7 @@
 <script lang="ts">
 import {onMount} from 'svelte';
 import {api, type Book, type Copy} from '../../lib/api';
+import BookFacts from './BookFacts.svelte';
 
 export let initialBookId:number;
 export let variant:'default'|'kiosk'='default';
@@ -272,12 +273,17 @@ function returnBook() {
   {#if loading}
     <p class="quiet" role="status">Loading lending details…</p>
   {:else if book}
+    {#if variant==='kiosk'}
+      {#if book.cover_url}<img class="selected-thumb" src={book.cover_url} alt=""/>{:else}<span class="selected-thumb no-thumb" aria-hidden="true"><span>{book.title}</span><small>{book.authors[0]}</small></span>{/if}
+      <div class="current-book">
+        <a class="book-heading" href={`/books/${book.id}/`}><strong>{book.title}</strong></a>
+        {#if book.subtitle}<span>{book.subtitle}</span>{/if}
+        <span>{book.authors.join(', ')||'Author not recorded'}</span>
+        <BookFacts {book}/>
+      </div>
+    {/if}
     {#if copy}
       <div class="copy-status">
-        {#if variant==='kiosk'}
-          {#if book.cover_url}<img class="selected-thumb" src={book.cover_url} alt=""/>{:else}<span class="selected-thumb no-thumb" aria-hidden="true"><span>{book.title}</span><small>{book.authors[0]}</small></span>{/if}
-          <a class="current-book" href={`/books/${book.id}/`}><strong>{book.title}</strong>{#if book.subtitle}<span>{book.subtitle}</span>{/if}<span>{book.authors.join(', ')}</span></a>
-        {/if}
         {#if book.copies.length>1}
           <label class="field copy-choice">Copy
             <select value={selectedCopyId??''} disabled={locked} onchange={chooseCopy}>
@@ -423,6 +429,10 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .compact .availability{max-width:580px}
 
 .compact{max-width:none;margin:0;grid-template-columns:minmax(280px,35%) minmax(0,1fr);column-gap:48px;row-gap:18px;min-height:min(520px,calc(100svh - 264px))}.selected-thumb{justify-self:start;max-height:min(520px,calc(100svh - 264px));box-shadow:3px 9px 8px #22291f25}.current-book strong{font-size:48px}.current-book span{font-size:22px}.compact .availability{max-width:none;border:0;padding:8px 0 10px;gap:24px;align-items:center}.compact .availability strong{padding:8px 14px;border-radius:4px;font-size:20px;background:#e0e8dd;color:#2c4532}.compact .availability strong.out{background:#eeddbb;color:#573916}.compact .home-shelf{display:grid;gap:4px;font-size:22px}.compact .home-shelf small{font-size:18px;color:#465247}.compact .circulation-actions{max-width:none;align-self:end}.compact .loan-person .quiet{font-size:20px;color:#465247}.compact .primary{border-radius:4px}.compact .quick-lend .borrower-shortcuts button{border-radius:4px}.compact input{border-radius:4px}.compact .return-row{gap:28px}.compact .loan-person{font-size:25px;gap:8px}.compact .field{font-size:20px}
+.current-book{min-width:0;overflow-wrap:anywhere;}
+.current-book .book-heading{color:inherit;text-decoration:none;}
+.current-book:hover strong{text-decoration:none;}
+.current-book .book-heading:hover strong{text-decoration:underline;text-underline-offset:4px;}
 @media(max-width:1000px){.compact{grid-template-columns:minmax(200px,32%) minmax(0,1fr);column-gap:32px}.current-book strong{font-size:38px}.current-book span{font-size:20px}.compact .home-shelf{font-size:20px}.compact .availability{gap:18px}.compact .availability strong{font-size:18px}.compact .loan-person{font-size:22px}}
 @media(max-width:700px){.compact{grid-template-columns:96px minmax(0,1fr);gap:16px 20px;min-height:0}.selected-thumb{width:96px;max-height:146px}.current-book strong{font-size:29px}.current-book span{font-size:17px}.compact .availability{padding:0;gap:10px}.compact .availability strong{font-size:16px;padding:5px 8px;justify-self:start}.compact .home-shelf{font-size:17px}.compact .home-shelf small{font-size:15px}.compact .loan-person{font-size:22px}.compact .loan-person .quiet{font-size:17px}.compact .circulation-actions{align-self:start}.compact .primary{min-height:60px}}
 </style>

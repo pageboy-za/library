@@ -209,9 +209,11 @@ func (s *Store) EditBorrower(ctx context.Context, id int64, name, notes, expecte
 
 type LoanOverview struct {
 	Loan
-	BookTitle string `json:"book_title"`
-	CopyLabel string `json:"copy_label"`
-	Shelf     string `json:"shelf"`
+	BookTitle         string `json:"book_title"`
+	CoverURL          string `json:"cover_url"`
+	CoverThumbnailURL string `json:"cover_thumbnail_url"`
+	CopyLabel         string `json:"copy_label"`
+	Shelf             string `json:"shelf"`
 }
 type ActiveLoanPage struct {
 	Loans    []LoanOverview `json:"loans"`
@@ -251,7 +253,7 @@ func (s *Store) ActiveLoans(ctx context.Context, borrowerID int64, due string, p
 	if e := s.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM loans l"+where, args...).Scan(&out.Total); e != nil {
 		return out, e
 	}
-	query := `SELECT l.id,l.copy_id,c.book_id,l.borrower_id,b.name,l.checked_out_at,l.due_date,l.returned_at,bo.title,c.label,COALESCE(bc.name||' / '||sh.name,'Unassigned') FROM loans l JOIN copies c ON c.id=l.copy_id JOIN books bo ON bo.id=c.book_id JOIN borrowers b ON b.id=l.borrower_id LEFT JOIN shelves sh ON sh.id=c.shelf_id LEFT JOIN bookcases bc ON bc.id=sh.bookcase_id` + where + ` ORDER BY l.due_date IS NULL,l.due_date,l.id LIMIT 24 OFFSET ?`
+	query := `SELECT l.id,l.copy_id,c.book_id,l.borrower_id,b.name,l.checked_out_at,l.due_date,l.returned_at,bo.title,c.label,COALESCE(bc.name||' / '||sh.name,'Unassigned'),COALESCE(ca.local_path,''),COALESCE(ca.id,0) FROM loans l JOIN copies c ON c.id=l.copy_id JOIN books bo ON bo.id=c.book_id LEFT JOIN cover_assets ca ON ca.id=bo.selected_cover_asset_id AND ca.book_id=bo.id JOIN borrowers b ON b.id=l.borrower_id LEFT JOIN shelves sh ON sh.id=c.shelf_id LEFT JOIN bookcases bc ON bc.id=sh.bookcase_id` + where + ` ORDER BY l.due_date IS NULL,l.due_date,l.id LIMIT 24 OFFSET ?`
 	args = append(args, (page-1)*24)
 	rows, e := s.DB.QueryContext(ctx, query, args...)
 	if e != nil {
@@ -260,8 +262,14 @@ func (s *Store) ActiveLoans(ctx context.Context, borrowerID int64, due string, p
 	defer rows.Close()
 	for rows.Next() {
 		var l LoanOverview
-		if e = rows.Scan(&l.ID, &l.CopyID, &l.BookID, &l.BorrowerID, &l.Borrower, &l.CheckedOutAt, &l.DueDate, &l.ReturnedAt, &l.BookTitle, &l.CopyLabel, &l.Shelf); e != nil {
+		var coverPath string
+		var coverID int64
+		if e = rows.Scan(&l.ID, &l.CopyID, &l.BookID, &l.BorrowerID, &l.Borrower, &l.CheckedOutAt, &l.DueDate, &l.ReturnedAt, &l.BookTitle, &l.CopyLabel, &l.Shelf, &coverPath, &coverID); e != nil {
 			return out, e
+		}
+		if coverID > 0 {
+			l.CoverURL = "/covers/" + coverPath
+			l.CoverThumbnailURL = coverThumbnailURL(l.BookID, coverID)
 		}
 		out.Loans = append(out.Loans, l)
 	}
