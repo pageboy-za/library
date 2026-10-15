@@ -13,6 +13,12 @@ Release and Pi installation requested by Nealle on 15 October 2026.
 - Sort/relevance unit tests and Astro checks passed. Combined browser checks used disposable books at 320, 390, 700, 768 and 1280 pixels: phone columns/vertical scroll and screen fit, no automatic phone search focus, all six sort orders, missing values last, title-first search with the chosen sort, clearing search, and selected-book focus on returning from details.
 - The signed release workflow runs the sorting regression tests alongside its existing application, version, backup/migration and secret checks.
 
+## Pi deployment verified — 15 October 2026
+
+- Signed v0.7.0 installed through Settings; application commit `04100e8e19d51b1e64966577398b74e32b8d8535`. Candidate app check, catalogue backup verification and live health/version checks passed.
+- Live phone checks confirmed the vertical two-column grid fits the screen, avoids automatic search focus, exposes all six sort options and prioritises title matches over subtitle matches.
+- The private field-by-field comparison matched all book metadata, inventory, deletion, discovery, shelf, borrower and loan records. The default-shelf preference and its revision were the sole difference during the release window; the current setting was retained. The complete audit and this exception remain recorded privately on the Pi.
+
 ## Previous release record
 
 # v0.6.1 — approved icon update
