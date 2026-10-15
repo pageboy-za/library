@@ -15,6 +15,13 @@ Release, Pi installation and fill-only subject/first-publication-year backfill r
 - Controlled metadata migration: private plans use cached exact-edition and explicitly linked-work data, fill only empty subjects and unset first years, protect manual corrections/clears, skip stale/deleted records, and preserve core details, inventory, notes, tags, descriptions, shelves, borrowers and loans. The script verifies these boundaries after application and makes no provider requests.
 - Release checks: full Go race suite, vet, Astro check/build, complete-history secret scan and five migration-script tests passed. The signed release workflow repeats source tests and scans before publication.
 
+## Pi deployment verified — 15 October 2026
+
+- Signed v0.6.0 installed through Settings; application commit `f803ab21052b78c4d4e93525a1bfe0f65e743372`.
+- The isolated candidate check passed. The installer created and verified its catalogue backup before activation. The pre-release private snapshot matched after installation.
+- The approved fill-only metadata backfill completed without skipped records; its comparison verified preservation of other book details, copies, deletion state, discovery notes/tags/descriptions, shelves, borrowers, loans and preferences. Cached responses, the migration plan and its result remain private on the Pi.
+- Live checks confirmed subject counts/filtering, first-publication-year sorting, source provenance, healthy service and completed background publication. Settings offers rollback to v0.5.0 only; older install buttons are hidden.
+
 ## Previous release
 
 # v0.5.0 — approved release bundle

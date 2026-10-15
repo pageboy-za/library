@@ -11,7 +11,9 @@ backup, and switches application versions. It checks that the generated pages id
 expected version, so old fallback pages cannot count as a successful update. Books, copies, shelves, borrowers,
 loans, covers, web-login configuration and TLS keys remain on the Pi.
 
-Compatible previous versions can be selected from the same release list. Failed
+Only the previous successfully installed version is offered for rollback. Older
+release install buttons are hidden, and a rollback does not offer another step
+backward. Failed
 activation restores the previous application code without replacing the catalogue
 with an older snapshot. The fixed activation journal supports interrupted-job
 recovery. Incompatible database migrations, OS updates, gateway changes and
