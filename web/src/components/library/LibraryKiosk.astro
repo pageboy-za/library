@@ -2,6 +2,7 @@
 import '../../styles/global.css';
 import '../../styles/app.css';
 import LiveKiosk from './LiveKiosk.svelte';
+import LibraryIcons from './LibraryIcons.astro';
 ---
 <!doctype html>
-<html lang="en" class="theme-light"><head><meta charset="utf-8"/><meta name="library-app-version" content={process.env.LIBRARY_APP_VERSION || 'dev'}/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#f5f3ed"/><title>Your library</title></head><body class="library-kiosk" id="kiosk-search-shell"><LiveKiosk client:only="svelte"/><noscript><p>Enable JavaScript to scan and lend books.</p></noscript></body></html>
+<html lang="en" class="theme-light"><head><meta charset="utf-8"/><meta name="library-app-version" content={process.env.LIBRARY_APP_VERSION || 'dev'}/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#f5f3ed"/><LibraryIcons/><title>Your library</title></head><body class="library-kiosk" id="kiosk-search-shell"><LiveKiosk client:only="svelte"/><noscript><p>Enable JavaScript to scan and lend books.</p></noscript></body></html>

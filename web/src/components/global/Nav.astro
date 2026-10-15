@@ -1,10 +1,11 @@
 ---
 import NavLink from './NavLink.astro';
+import LibraryMark from '../library/LibraryMark.svelte';
 const secondaryActive = ['/discover','/shelves','/borrowers','/settings'].some(path=>Astro.url.pathname.startsWith(path));
 ---
 <nav class="app-nav" aria-label="Main">
   <ul class="app-nav_primary">
-    <NavLink href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h5v16H4z M10 4h5v16h-5z M17 4l4 15-4 1-4-15"/></svg>Library</NavLink>
+    <NavLink href="/"><LibraryMark/>Library</NavLink>
     <NavLink href="/loans/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h17 M16 3l4 4-4 4 M21 17H4 M8 13l-4 4 4 4"/></svg>Loans &amp; returns</NavLink>
     <NavLink href="/scan/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14 M5 12h14"/></svg>Add book</NavLink>
   </ul>

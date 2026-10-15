@@ -1,3 +1,13 @@
+# v0.6.1 — approved icon update
+
+Point release and Pi installation requested by Nealle on 15 October 2026.
+
+- Library identity: a dark-green book with a bookmark in the main navigation and kiosk heading, with a matching solid browser-tab icon. The shared SVG favicon is included on the home/kiosk page and all standard application pages. Decorative header icons preserve the existing accessible link and heading text.
+
+- Validation: Astro check passed with no errors or warnings; production Astro generation passed. Local browser checks confirmed the navigation and tablet kiosk icons, matching favicon declarations, and legible 16/24/32-pixel tab artwork on light and dark backgrounds. Disposable preview records only.
+
+## Previous release record
+
 # v0.6.0 — approved metadata release
 
 Release, Pi installation and fill-only subject/first-publication-year backfill requested by Nealle on 15 October 2026.
