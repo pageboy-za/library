@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"home-library/internal/auth"
 	"home-library/internal/store"
 	"path/filepath"
@@ -29,7 +30,7 @@ func TestBootstrapResetAndListWithoutPasswordArguments(t *testing.T) {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer
-	password := "correct horse battery staple"
+	password := "Fixture-" + rand.Text()
 	// Values named after commands must not be mistaken for positional commands.
 	if err = run(ctx, []string{"-data", data, "bootstrap", "-username", "list", "-display-name", "bootstrap"}, strings.NewReader(password+"\n"), &output); err != nil {
 		t.Fatal(err)
@@ -46,7 +47,7 @@ func TestBootstrapResetAndListWithoutPasswordArguments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	replacement := "a different long password"
+	replacement := "Fixture-" + rand.Text()
 	if err = run(ctx, []string{"reset-password", "-data", data, "-username", "list"}, strings.NewReader(replacement+"\n"), &output); err != nil {
 		t.Fatal(err)
 	}
