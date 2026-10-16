@@ -1,5 +1,7 @@
 # Home library management system — plan
 
+> Historical design plan. Runtime architecture was superseded by the SvelteKit migration: SvelteKit builds pre-rendered HTML/assets once; Go serves those files and the SQLite API on the Raspberry Pi. No Node/Astro process, per-book HTML generation, metadata snapshot build or publication queue runs on the device. Current setup and deployment instructions are in [README.md](README.md), [PI_README.md](PI_README.md) and [RELEASE_README.md](RELEASE_README.md). The older implementation details below are retained as project history.
+
 Date: 9 October 2026
 Status: first working slice implemented; see RELEASE_ACCEPTANCE.md for outstanding acceptance criteria.
 

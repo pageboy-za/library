@@ -1,6 +1,8 @@
 # Home Library
 
-A local Go + SQLite application with a prebuilt Astro/Svelte interface. Raspberry Pi OS 64-bit remains the deployment target.
+A local Go + SQLite application with a prebuilt SvelteKit interface. Raspberry Pi OS 64-bit remains the deployment target.
+
+See [SvelteKit migration and validation](SVELTEKIT_MIGRATION.md) for the frontend structure and Raspberry Pi checks.
 
 ## Run the first slice
 
@@ -38,7 +40,7 @@ Books without ISBNs can be entered manually. Do not concatenate the price supple
 - `internal/covers`: locally cached cover downloads, selection and validated uploads.
 - `internal/catalogue`: shared explained discovery service.
 - `internal/mcpserver` and `cmd/library-mcp`: read-only local stdio MCP tools.
-- `web/src/pages/book-view.astro`: reusable live book shell; `LiveBook.svelte` reads the current saved record.
+- `web/src/routes`: SvelteKit catalogue, scanning, Settings and book routes; `LiveBook.svelte` reads the current saved record.
 - `web/src/components/library`: live Svelte search, inventory, lending, cover picker and editor controls.
 
 Go serves the compiled HTML/assets and the database API. The frontend is built once before installation. Book and kiosk views load current records through Svelte; `/books/1/` uses the reusable book shell, so a new or edited book appears without a build or restart. Legacy `/book/?id=1` links still redirect. The initial HTML is a shell; book metadata arrives from the local API after JavaScript starts.

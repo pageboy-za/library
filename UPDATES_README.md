@@ -21,7 +21,7 @@ signing-key rotation require separate administrator work.
 
 ## First prebuilt runtime update
 
-New releases declare `runtime: static-v1` and contain prebuilt frontend files. The Pi runs Go directly and no longer needs Node to start or save books. Existing managed installations must refresh their protected updater helpers once before accepting this format; follow [the helper upgrade and verification instructions](RELEASE_README.md#existing-managed-pi-refresh-updater-helpers-once). Legacy releases remain supported for recovery. This helper upgrade is separate from ordinary application updates.
+New releases declare `runtime: static-v1` and contain prebuilt SvelteKit frontend files. The frontend migration preserves the existing release layout and updater contract. The Pi runs Go directly and no longer needs Node to start or save books. Existing managed installations must refresh their protected updater helpers once before accepting this format; follow [the helper upgrade and verification instructions](RELEASE_README.md#existing-managed-pi-refresh-updater-helpers-once). Legacy releases remain supported for recovery. This helper upgrade is separate from ordinary application updates.
 
 ## Publishing a release
 

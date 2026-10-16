@@ -39,6 +39,8 @@ jobs:
           npm run check
           LIBRARY_APP_VERSION="$RELEASE_VERSION" npm run build
           python3 ../deploy/check-page-version.py "$RELEASE_VERSION" dist index.html settings/index.html scan/index.html book-view/index.html
+      - name: Check portable source package
+        run: ./deploy/package-test.sh
       - name: Check secrets and updater rejection cases
         run: |
           set -eu

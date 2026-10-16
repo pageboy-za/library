@@ -389,7 +389,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		http.Redirect(w, r, fmt.Sprintf("/books/%d/", id(r)), http.StatusSeeOther)
 	})
-	m.HandleFunc("GET /books/{id}/", func(w http.ResponseWriter, r *http.Request) {
+	m.HandleFunc("GET /books/{id}/{$}", func(w http.ResponseWriter, r *http.Request) {
 		if _, e := s.Store.Book(r.Context(), id(r)); e != nil {
 			http.Error(w, "Book not found", 404)
 			return
@@ -401,17 +401,38 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		http.ServeFile(w, r, filepath.Join(web, "book-view", "index.html"))
 	})
-	m.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	m.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		web := s.Web
 		if s.Pages != nil {
-
 			web = s.Pages.Directory()
 		}
-		if strings.HasSuffix(r.URL.Path, "/") || strings.HasSuffix(r.URL.Path, ".html") {
+		// Only serve actual build outputs. Unknown routes must not become an SPA
+		// success response, and build directories must never expose listings.
+		relative := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+		file := filepath.Join(web, filepath.FromSlash(relative))
+		info, err := os.Stat(file)
+		if err == nil && info.IsDir() {
+			file = filepath.Join(file, "index.html")
+			info, err = os.Stat(file)
+		}
+		if err != nil || !info.Mode().IsRegular() {
+			http.NotFound(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/_app/immutable/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			// In particular, HTML and SvelteKit's version.json must revalidate
+			// after an application upgrade.
 			w.Header().Set("Cache-Control", "no-cache")
 		}
 		http.FileServer(http.Dir(web)).ServeHTTP(w, r)
-	}))
+	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host, _, e := net.SplitHostPort(r.Host)
 		if e != nil {

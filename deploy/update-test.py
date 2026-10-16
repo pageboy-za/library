@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory(prefix='library-release-security-') as director
  packaged=verify(published/'manifest.json',published/'manifest.sig',public,verifier)
  assert packaged['runtime']=='static-v1'
  extract(published/'bundle.tar.gz',packaged,root/'published-extracted')
- for change in [lambda m:m.update(runtime='unknown'),lambda m:m.update(runtime=None),lambda m:m['files'].pop(),lambda m:m['files'].append(dict(path='runtime/bin/node',type='file',sha256='0'*64,size=0,mode=0o755))]:
+ for change in [lambda m:m.update(runtime='unknown'),lambda m:m.update(runtime=None),lambda m:m['files'].pop(),lambda m:m['files'].append(dict(path='runtime/bin/node',type='file',sha256='0'*64,size=0,mode=0o755)),lambda m:m['files'].append(dict(path='web/.svelte-kit/output/server/index.js',type='file',sha256='0'*64,size=0,mode=0o644))]:
   m=copy.deepcopy(static);change(m);sign(m);rejected(lambda:verify(manifest,signature,public,verifier))
  bodies=legacy_bodies;write_bundle();sign(copy.deepcopy(base))
  # Altered publisher bytes must fail even when the tar is otherwise valid.

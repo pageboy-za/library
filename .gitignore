@@ -16,6 +16,7 @@
 node_modules/
 web/dist/
 web/.astro/
+web/.svelte-kit/
 coverage/
 *.log
 

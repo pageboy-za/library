@@ -19,7 +19,7 @@ Current metadata, enrichment and cover clients use Go's default HTTP transport, 
 - An uncached ISBN fails quickly and offers manual entry.
 - A manual book without an ISBN accepts a year-only publication date and a shelf.
 - A generated synthetic PNG uploads locally, becomes the selected cover and is served as a normalized JPEG.
-- A metadata edit is immediately available from the API; its reusable book shell loads Svelte without waiting for static generation.
+- A metadata edit is immediately available from the API; its reusable SvelteKit book shell loads current data without waiting for static generation.
 - Assigning an ISBN preserves the chosen cover; repeated ISBN scans open the same record without adding copies. Another physical copy is added explicitly.
 - Checkout changes live inventory availability/shelf status while the reusable book shell remains unchanged.
 - The saved description is available through the local API; private notes never appear in the reusable HTML shell.
@@ -33,7 +33,7 @@ The prebuilt web/dist interface is copied into the disposable workspace. The chi
 
 This validates API behavior, prebuilt HTML and recovery using the actual built executables. It does not drive a browser, prove Svelte hydration/click behavior, test scanner focus or timing, or establish Pi performance, systemd startup, touchscreen operation or durable backup-disk behavior. Browser and physical Raspberry Pi acceptance remain separate. It tests the existing binaries; rebuild after source changes before relying on its result.
 
-Recorded development result: **PASS on 10 October 2026**, using the Mac's built binaries and installed Astro dependencies. The deny-proxy observation, all fixture assertions, backup verification, restored offline startup and local cover checksum passed. Temporary processes and folders were cleaned up; no household database was opened. This is development acceptance, not a Pi hardware sign-off.
+Historical development result: **PASS on 10 October 2026**, before the SvelteKit migration. The deny-proxy observation, all fixture assertions, backup verification, restored offline startup and local cover checksum passed. Temporary processes and folders were cleaned up; no household database was opened. This is development acceptance, not a Pi hardware sign-off.
 
 ## Verified checkpoint
 

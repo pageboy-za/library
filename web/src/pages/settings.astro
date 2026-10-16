@@ -1,8 +1,0 @@
----
-import Layout from '../layouts/LibraryLayout.astro';
-import BackupStatus from '../components/library/BackupStatus.svelte';
-import Updates from '../components/library/Updates.svelte';
-import DeletedBooks from '../components/library/DeletedBooks.svelte';
-import DefaultShelf from '../components/library/DefaultShelf.svelte';
----
-<Layout title="Settings" eyebrow="YOUR LIBRARY" description="Choose your default shelf, check backups and install approved updates."><DefaultShelf client:load/><BackupStatus client:load/><Updates client:load/><DeletedBooks client:load/></Layout>

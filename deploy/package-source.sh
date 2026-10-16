@@ -27,12 +27,14 @@ if parent == source or source in parent.parents:
 selected = set()
 required = ["go.mod", "go.sum", "internal/store/schema.sql", "cmd/library/main.go",
             "cmd/library-backup/main.go", "cmd/library-mcp/main.go",
-            "web/package.json", "web/package-lock.json", "web/astro.config.mjs",
-            "web/tsconfig.json", "web/src/pages/books/[id].astro",
+            "web/package.json", "web/package-lock.json", "web/vite.config.ts",
+            "web/tsconfig.json", "web/src/app.html", "web/src/routes/+layout.svelte", "web/src/routes/+layout.ts", "web/src/routes/+page.svelte", "web/src/routes/books/[id]/+page.svelte", "web/src/routes/books/[id]/+page.ts",
+            "web/src/routes/scan/+page.svelte", "web/src/routes/settings/+page.svelte",
             "deploy/build-pi.sh", "deploy/home-library.service", "PI_README.md"]
 roots = {"cmd": {".go"}, "internal": {".go", ".sql"},
-         "web/src": {".astro", ".svelte", ".ts", ".js", ".css", ".svg", ".woff2"}}
-explicit = required + ["LICENSE", "deploy/upgrade-runtime-updater.py", "README.md", "LIBRARY_PLAN.md", "MULTIFORMAT_PLAN.md",
+         "web/src": {".html", ".svelte", ".ts", ".js", ".mjs", ".css", ".svg", ".woff2"},
+         "web/static": {".svg", ".woff2", ".png", ".jpg", ".jpeg", ".webp", ".avif", ".ico", ".webmanifest"}}
+explicit = required + ["LICENSE", "deploy/upgrade-runtime-updater.py", "README.md", "SVELTEKIT_MIGRATION.md", "LIBRARY_PLAN.md", "MULTIFORMAT_PLAN.md",
     "BACKUP_README.md", "MCP_README.md", "RELEASE_README.md", "ER_DIAGRAM.md",
     "ER_DIAGRAM.mmd", "ER_DIAGRAM.png", "web/LUMOS.md", "web/LUMOS_LICENSE",
     "deploy/start-kiosk.sh", "deploy/home-library-kiosk.desktop",

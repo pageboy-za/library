@@ -35,7 +35,6 @@
  .app-heading{display:flex;align-items:baseline;gap:var(--app-space-md);margin-bottom:var(--app-space-md)}
  .app-heading h1{font:normal 2.35rem/1.15 var(--app-serif);letter-spacing:-.035em;min-width:0;overflow-wrap:anywhere}
  .app-heading p{font-size:.875rem;color:var(--app-muted);max-width:38rem}
- .app-content>astro-island{display:block}
  .library-button{border-radius:.25rem;min-height:2.75rem;font-size:.9rem;white-space:nowrap;transition:background 140ms ease}
  .library-button:active{transform:translateY(1px)}
  .library-button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--app-focus);outline-offset:4px}

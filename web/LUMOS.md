@@ -1,5 +1,7 @@
 # Building with Lumos
 
+> These are the original Lumos for Astro component conventions. The SvelteKit application retains the licensed visual tokens, CSS and assets; Astro-specific component/slot guidance below is historical and does not describe the current runtime.
+
 How to build pages in this project so they stay consistent and cheap to change. Read this before adding a page, a section, or a style.
 
 ## Building a page

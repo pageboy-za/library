@@ -44,7 +44,7 @@ def verify(manifest,signature,key,verifier):
  required_files=['bin/library','bin/library-backup']
  if m.get('runtime')=='static-v1':
   required_files+=['web/index.html','web/book-view/index.html','web/settings/index.html','web/scan/index.html']
-  if any(n.startswith(('runtime/','web/node_modules/','web/src/')) for n in names):raise ValueError('Static runtime contains development dependencies')
+  if any(n.startswith(('runtime/','web/node_modules/','web/src/','web/.svelte-kit/')) for n in names):raise ValueError('Static runtime contains development dependencies')
  else:required_files+=['web/package.json','web/node_modules/astro/bin/astro.mjs','runtime/bin/node']
  for required in required_files:
   if required not in names:raise ValueError('Incomplete runtime')

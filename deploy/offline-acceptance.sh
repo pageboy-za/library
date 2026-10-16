@@ -38,7 +38,6 @@ for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_prox
 for name in ("NO_PROXY", "no_proxy"):
     environment[name] = "127.0.0.1,localhost"
 environment["PATH"] = "/nonexistent"  # Prove no runtime compiler/Node dependency.
-environment.pop("LIBRARY_BOOK_SNAPSHOT", None)
 client = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 owned = None
 log = None
@@ -123,7 +122,7 @@ try:
             scan = request("/api/isbn/9781857028898"); assert scan["existing"]["id"] == book_id and scan["existing"]["count"] == 1
         book = request(f"/api/books/{book_id}/copies", {"shelf_id":shelf["id"], "request_key":key()}, "POST"); assert book["count"] == 2
         borrower = request("/api/borrowers", {"name":"Fixture borrower", "notes":"Synthetic borrower", "request_key":key()}, "POST")
-        html_before = request(f"/books/{book_id}/"); assert b"astro-island" in html_before
+        html_before = request(f"/books/{book_id}/"); assert b"_app/immutable/" in html_before and b"sveltekit" in html_before.lower()
         current = request(f"/api/books/{book_id}"); assert current["title"] == "Offline revised fixture" and current["publication_date"] == "2026"
         loan = request("/api/loans", {"copy_id":book["copies"][0]["id"], "borrower_id":borrower["id"], "due_date":"", "request_key":key()}, "POST")
         checked = request(f"/api/books/{book_id}"); assert checked["available"] == 1 and checked["copies"][0]["out"] and checked["copies"][0]["shelf_id"] == shelf["id"]
@@ -142,13 +141,13 @@ try:
         assert recovered["count"] == 2 and recovered["available"] == 1 and recovered["cover_url"] == cover_url
         assert hashlib.sha256(request(cover_url)).hexdigest() == cover_hash
         assert request(f"/api/books/{book_id}/discovery")["notes"] == "PRIVATE_FIXTURE_NOTE_43"
-        assert b"astro-island" in request(f"/books/{book_id}/")
+        assert b"_app/immutable/" in request(f"/books/{book_id}/")
         assert request(f"/api/books/{book_id}/discovery")["description"] == "Synthetic public description"
         assert request("/api/isbn/9781857028898")["existing"]["count"] == 2
         request(f"/api/loans/{loan['id']}/return", {"request_key":key()}, "POST")
         assert request(f"/api/books/{book_id}")["available"] == 2
         stop()
-        print("PASS: real app offline lookup fallback, manual/year-only entry, local cover, ISBN rescans, explicit copies, shelves, checkout/return, live metadata/reusable islands, private-note exclusion, consistent backup/verify/restore and offline restart")
+        print("PASS: real app offline lookup fallback, manual/year-only entry, local cover, ISBN rescans, explicit copies, shelves, checkout/return, live metadata/reusable SvelteKit shell, private-note exclusion, consistent backup/verify/restore and offline restart")
         print("Disposable data removed. No household paths, downloads, service installation or external provider requests.")
 finally:
     stop(); proxy.shutdown(); proxy.server_close(); proxy_thread.join(timeout=3)

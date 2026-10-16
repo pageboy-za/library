@@ -16,7 +16,7 @@ async function load(){
  try{
   const value=await api<Book>(`/api/books/${id}`);
   if(stopped)return;
-  book=value;document.title=`${value.title} · Home Library`;
+  book=value;
   api<{description:string;subjects:string[]}>(`/api/books/${id}/discovery`).then(v=>{if(!stopped){description=v.description;subjects=v.subjects;}}).catch(()=>{});
   if(!value.cover_url&&value.isbn&&attempts++<10)coverTimer=setTimeout(load,3000);
  }catch(e){if(!stopped)error=(e as Error).message;}
@@ -25,6 +25,7 @@ function changeCover(){const picker=document.querySelector<HTMLDetailsElement>('
 onMount(()=>{load();const changed=(event:Event)=>{const detail=(event as CustomEvent<{bookId:number;open:boolean}>).detail;if(detail.bookId===book?.id)editing=detail.open;};window.addEventListener('library-book-editor-changed',changed);return()=>window.removeEventListener('library-book-editor-changed',changed);});
 onDestroy(()=>{stopped=true;clearTimeout(coverTimer);});
 </script>
+<svelte:head><title>{book ? `${book.title} · Home Library` : 'Book · Home Library'}</title></svelte:head>
 {#if error}<p role="alert" class="library-error">{error}</p><button class="library-button" onclick={load}>Try again</button>{/if}
 {#if book}
 <article class="book-page" data-book-id={book.id} data-book-revision={book.revision}>

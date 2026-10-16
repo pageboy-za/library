@@ -5,7 +5,7 @@ The target remains Raspberry Pi OS **64-bit (ARM64)**. The application runs as a
 ## What runs on the device
 
 - `bin/library` serves compiled HTML/assets and the local API.
-- Svelte loads current catalogue, copy, shelf and loan data from that API.
+- SvelteKit routes and Svelte components load current catalogue, copy, shelf and loan data from that API.
 - SQLite, covers and caches live outside the application directory.
 - No Node, npm, Go compiler or frontend source is needed for normal operation.
 

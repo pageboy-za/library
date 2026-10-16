@@ -15,7 +15,7 @@ with tarfile.open(out/'bundle.tar.gz','w:gz',dereference=False) as t:
  for path in sorted(root.rglob('*')):
   relative=path.relative_to(root).as_posix()
   assert relative.split('/')[0] in ['bin','web'],relative
-  if relative.startswith(('web/.astro','web/dist','web/node_modules/.vite')):continue
+  if relative.startswith(('web/.astro','web/.svelte-kit','web/src/','web/node_modules/','web/dist')):raise ValueError('Development files must not be included in a prebuilt runtime: '+relative)
   if path.is_symlink():
    target=os.readlink(path);assert not os.path.isabs(target)
    assert path.resolve().is_relative_to(root),relative

@@ -36,7 +36,7 @@ def inspect(path):
             hashes[relative] = digest
         assert set(hashes) == set(manifest["files"])
         for required in ["go.mod", "go.sum", "cmd/library/main.go", "internal/store/schema.sql",
-                         "web/package-lock.json", "web/src/pages/books/[id].astro",
+                         "web/package-lock.json", "web/vite.config.ts", "web/src/app.html", "web/src/routes/books/[id]/+page.svelte", "web/src/routes/scan/+page.svelte", "web/src/routes/settings/+page.svelte",
                          "web/LUMOS_LICENSE", "deploy/build-pi.sh", "PI_README.md",
                          "deploy/offline-acceptance.sh", "OFFLINE_ACCEPTANCE.md", "RELEASE_ACCEPTANCE.md"]:
             assert required in payload, required
@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory(prefix="library package test ") as directory:
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(contents)
     excluded = ["data/library.sqlite", "data/covers/private.jpg", "data/pages/household.html",
-        "bin/library", "web/node_modules/secret.js", "web/dist/index.html", "web/.astro/cache.json",
+        "bin/library", "web/node_modules/secret.js", "web/dist/index.html", "web/.astro/cache.json", "web/.svelte-kit/output/server/index.js", "web/src/.svelte-kit/private.ts",
         "web/.book-builds/private.html", ".env", ".npmrc", ".git/config", "web/.env.local",
         "internal/credentials.json", "internal/private.key", "internal/.private/secret.go",
         "internal/cache/generated.go", "deploy/unknown-secret.sh", "private-household-notes.md"]

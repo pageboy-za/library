@@ -17,7 +17,7 @@ The builder prints the archive's SHA-256 checksum and refuses to overwrite an ex
 ./deploy/package-source.sh "/private/tmp/library release.tar.gz" "/path/to/library checkout"
 ```
 
-The archive contains a single `home-library-source/` folder. It includes Go source/tests and manifests, Astro/Svelte source and assets, npm package/lock files, selected deployment scripts, documentation and the Lumos license. `SHA256SUMS` describes the archived source bytes; `release-manifest.json` lists the included files. File order, timestamps and archive ownership are normalized, so unchanged inputs produce the same archive bytes.
+The archive contains a single `home-library-source/` folder. It includes Go source/tests and manifests, SvelteKit/Svelte source and assets, npm package/lock files, selected deployment scripts, documentation and the Lumos license. `SHA256SUMS` describes the archived source bytes; `release-manifest.json` lists the included files. File order, timestamps and archive ownership are normalized, so unchanged inputs produce the same archive bytes.
 
 The explicit allowlist excludes household SQLite/covers/pages, installed dependencies, generated HTML, Mac binaries, caches, hidden files, `.git`, environment files, keys and unknown deployment files. Symbolic links in selected source are rejected. This controls packaged paths; review source and documentation before distributing them, since embedded credentials or private text inside an allowed source file are not detected automatically. Add future required file types or deployment files to the allowlist deliberately.
 
@@ -34,7 +34,7 @@ sha256sum -c SHA256SUMS
 ./deploy/build-pi.sh
 ```
 
-Use Go 1.27 or newer, Node 22.12 or newer and npm 9.6.5 or newer on Raspberry Pi OS 64-bit. The build script installs exact frontend versions with `npm ci`; it may download npm packages and Go modules. The archive itself includes no installed dependencies and makes no network requests. Build online or arrange a separate verified dependency cache.
+Use Go 1.27 or newer, Node 22.12 or newer and npm 9.6.5 or newer on Raspberry Pi OS 64-bit. The build script installs exact frontend versions with `npm ci`; it may download npm packages and Go modules. The archive itself includes no installed dependencies and makes no network requests. Build online or arrange a separate verified dependency cache. The SvelteKit route/layout files, app template, configuration and static fonts/assets are included; generated `.svelte-kit/` files are excluded.
 
 The build produces `bin/` and prebuilt `web/dist/`. Install those HTML/assets beside the Go application as `web/`. Go serves the prebuilt interface and live catalogue API; **Node and frontend source are build-time dependencies only**. See [PI_README.md](PI_README.md) for startup, service and kiosk instructions, and [BACKUP_README.md](BACKUP_README.md) to transfer household data through verified backup/restore.
 
@@ -48,7 +48,7 @@ Development checks passed: shell syntax and disposable packaging acceptance; an 
 
 ## Signed prebuilt Raspberry Pi runtime
 
-The Approved Pi release workflow builds on Linux ARM64 and publishes `bundle.tar.gz`, `manifest.json` and `manifest.sig`. New manifests declare `runtime: static-v1`. Bundles contain Go binaries, prebuilt `web/` files and licences, without Node, npm dependencies or frontend source. The four required HTML entry points are checked before packaging and by the updater. A fresh output directory is required:
+The Approved Pi release workflow builds on Linux ARM64 and publishes `bundle.tar.gz`, `manifest.json` and `manifest.sig`. New manifests declare `runtime: static-v1`. Bundles contain Go binaries, prebuilt `web/` files and licences, without Node, npm dependencies or frontend source. SvelteKit uses adapter-static to produce the same four required HTML entry points, checked before packaging and by the updater. Dynamic book URLs receive the reusable book shell and load the current record through the Go API. A fresh output directory is required:
 
 ```sh
 sh deploy/prepare-release.sh v0.2.0 /absolute/fresh/release-output
