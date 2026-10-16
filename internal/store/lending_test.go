@@ -260,3 +260,75 @@ func TestArchiveCompetesWithCheckout(t *testing.T) {
 		t.Fatal("Active loan with archived copy")
 	}
 }
+
+func TestScannedCardCheckoutRevalidatesIdentityAndPreservesRetries(t *testing.T) {
+	ctx := context.Background()
+	s, e := Open(filepath.Join(t.TempDir(), "db"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer s.DB.Close()
+	book, e := s.Save(ctx, Input{Title: "Card checkout fixture", Authors: []string{}, RequestKey: "card-test-book"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	borrower, e := s.AddBorrower(ctx, "Card member", "", "card-test-borrower")
+	if e != nil {
+		t.Fatal(e)
+	}
+	other, e := s.AddBorrower(ctx, "Other member", "", "card-test-other")
+	if e != nil {
+		t.Fatal(e)
+	}
+	card := "mbr_0123456789abcdefghijklmnopqrstuv"
+	_, e = s.DB.Exec(`INSERT INTO member_registrations(name,email,status,receipt_token_hash,receipt_expires_at,submitted_at,borrower_id,card_code) VALUES('Card member','card@example.test','approved','fixture-receipt',9999999999,CURRENT_TIMESTAMP,?,?)`, borrower, card)
+	if e != nil {
+		t.Fatal(e)
+	}
+	copyID := book.Copies[0].ID
+	for _, tc := range []struct {
+		name, code string
+		borrower   int64
+	}{{"wrong borrower", card, other}, {"unknown card", card + "x", borrower}} {
+		if _, e = s.CheckoutWithCard(ctx, copyID, tc.borrower, "", "rejected-"+tc.name, tc.code); e == nil {
+			t.Fatalf("accepted %s", tc.name)
+		}
+	}
+	id, e := s.CheckoutWithCard(ctx, copyID, borrower, "", "valid-card-checkout", card)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.ReturnLoan(ctx, id, "card-test-return"); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.DB.Exec("UPDATE member_registrations SET card_code=?", card+"replacement"); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.CheckoutWithCard(ctx, copyID, borrower, "", "replaced-card-checkout", card); e == nil {
+		t.Fatal("accepted replaced card")
+	}
+	// A lost-response retry must report the original result even after card rotation.
+	retry, e := s.CheckoutWithCard(ctx, copyID, borrower, "", "valid-card-checkout", card)
+	if e != nil || retry != id {
+		t.Fatalf("unsafe retry: %d %v", retry, e)
+	}
+	if _, e = s.DB.Exec("UPDATE member_registrations SET card_code=?,status='suspended'", card); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.CheckoutWithCard(ctx, copyID, borrower, "", "suspended-card-checkout", card); e == nil {
+		t.Fatal("accepted suspended member")
+	}
+	if _, e = s.DB.Exec("UPDATE member_registrations SET status='approved'"); e != nil {
+		t.Fatal(e)
+	}
+	if e = s.ArchiveBorrower(ctx, borrower); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.CheckoutWithCard(ctx, copyID, borrower, "", "archived-card-checkout", card); e == nil {
+		t.Fatal("accepted archived borrower")
+	}
+	loans, e := s.Loans(ctx, book.ID)
+	if e != nil || len(loans) != 1 {
+		t.Fatalf("unexpected loans: %v %v", loans, e)
+	}
+}

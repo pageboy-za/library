@@ -30,28 +30,29 @@ import (
 )
 
 type Server struct {
-	Access              *auth.Service
-	Membership          *membership.Service
-	Wallet              *wallet.Service
-	PublicURL           string
-	registrationLimiter registrationLimiter
-	SecureCookies       bool
-	loginGuard          loginGuard
-	Lifecycle           context.Context
-	backgroundMu        sync.Mutex
-	backgroundBooks     map[int64]struct{}
-	backgroundRunning   bool
-	Version             string
-	Commit              string
-	MaintenancePath     string
-	ActiveWrites        atomic.Int64
-	BackupDirectory     string
-	Store               *store.Store
-	Metadata            *metadata.Client
-	Web                 string
-	Covers              *covers.Service
-	Enrichment          *catalogue.EnrichmentService
-	Pages               interface {
+	Access               *auth.Service
+	Membership           *membership.Service
+	Wallet               *wallet.Service
+	PublicURL            string
+	registrationLimiter  registrationLimiter
+	memberLendingLimiter registrationLimiter
+	SecureCookies        bool
+	loginGuard           loginGuard
+	Lifecycle            context.Context
+	backgroundMu         sync.Mutex
+	backgroundBooks      map[int64]struct{}
+	backgroundRunning    bool
+	Version              string
+	Commit               string
+	MaintenancePath      string
+	ActiveWrites         atomic.Int64
+	BackupDirectory      string
+	Store                *store.Store
+	Metadata             *metadata.Client
+	Web                  string
+	Covers               *covers.Service
+	Enrichment           *catalogue.EnrichmentService
+	Pages                interface {
 		Ensure(context.Context) error
 		Directory() string
 	}
@@ -103,6 +104,7 @@ func (s *Server) Handler() http.Handler {
 	m := http.NewServeMux()
 	s.registerAccess(m)
 	s.registerMember(m)
+	s.registerMemberLending(m)
 	s.registerMembership(m)
 	if assets, ok := s.Pages.(interface{ AssetsDirectory() string }); ok {
 		m.HandleFunc("GET /_astro/", func(w http.ResponseWriter, r *http.Request) {

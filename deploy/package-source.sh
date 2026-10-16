@@ -35,7 +35,7 @@ roots = {"cmd": {".go"}, "internal": {".go", ".sql"},
          "web/src": {".html", ".svelte", ".ts", ".js", ".mjs", ".css", ".svg", ".woff2"},
          "web/test": {".ts"},
          "web/static": {".svg", ".woff2", ".png", ".jpg", ".jpeg", ".webp", ".avif", ".ico", ".webmanifest"}}
-explicit = required + ["LICENSE", "STAFF_ACCESS_MIGRATION.md", "WALLET_SETUP.md", "THIRD_PARTY_NOTICES.md", "deploy/attest-staff-gateway.py", "deploy/deploy-staff-release.py", "deploy/deploy-staff-release-test.py", "deploy/upgrade-runtime-updater.py", "README.md", "SVELTEKIT_MIGRATION.md", "LIBRARY_PLAN.md", "MULTIFORMAT_PLAN.md",
+explicit = required + ["LICENSE", "STAFF_ACCESS_MIGRATION.md", "WALLET_SETUP.md", "THIRD_PARTY_NOTICES.md", "deploy/attest-staff-gateway.py", "deploy/open-network-access.py", "deploy/deploy-staff-release.py", "deploy/deploy-staff-release-test.py", "deploy/upgrade-runtime-updater.py", "README.md", "SVELTEKIT_MIGRATION.md", "LIBRARY_PLAN.md", "MULTIFORMAT_PLAN.md",
     "BACKUP_README.md", "MCP_README.md", "RELEASE_README.md", "ER_DIAGRAM.md",
     "ER_DIAGRAM.mmd", "ER_DIAGRAM.png", "web/LUMOS.md", "web/LUMOS_LICENSE",
     "deploy/start-kiosk.sh", "deploy/home-library-kiosk.desktop",

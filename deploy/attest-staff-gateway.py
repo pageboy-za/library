@@ -8,7 +8,7 @@ import argparse, hashlib, os, pathlib, stat, subprocess
 from updates_common import atomic_json
 
 p=argparse.ArgumentParser(description=__doc__)
-p.add_argument('--acknowledge-reviewed-gateway',action='store_true',required=True,help='Confirm the installed TLS/basic/origin boundary and staff forward_auth ordering have been reviewed')
+p.add_argument('--acknowledge-reviewed-gateway',action='store_true',required=True,help='Confirm the installed TLS/origin boundary and staff forward_auth ordering have been reviewed')
 p.parse_args()
 if os.geteuid()!=0:raise SystemExit('Run as administrator with sudo')
 config=pathlib.Path('/etc/home-library-gateway/Caddyfile')

@@ -126,6 +126,29 @@ func TestRegistrationHTTPPrivacyPermissionsAndCards(t *testing.T) {
 	if w = request("POST", "/api/members/lookup", fmt.Sprintf(`{"card_code":%q}`, code), false, true, false); w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
+	// Staff can check out with a scanned card; members cannot use it to lend to themselves.
+	cardBook, err := db.Save(ctx, store.Input{Title: "Scanned pass checkout", RequestKey: "scan-http-book"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved, err := server.Membership.List(ctx, "approved")
+	if err != nil || len(approved) != 1 {
+		t.Fatal(err)
+	}
+	loanBody := fmt.Sprintf(`{"copy_id":%d,"borrower_id":%d,"card_code":%q,"request_key":"scan-http-loan"}`, cardBook.Copies[0].ID, *approved[0].BorrowerID, code)
+	if w = request("POST", "/api/loans", loanBody, true, false, true); w.Code != 401 {
+		t.Fatal("member made a loan", w.Code)
+	}
+	if w = request("POST", "/api/loans", loanBody, false, true, false); w.Code != 201 {
+		t.Fatal("staff card checkout", w.Code, w.Body.String())
+	}
+	var scannedLoan struct {
+		ID int64 `json:"id"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &scannedLoan)
+	if _, err = db.ReturnLoan(ctx, scannedLoan.ID, "scan-http-return"); err != nil {
+		t.Fatal(err)
+	}
 	// The card code is a public identifier, never a member receipt or staff cookie.
 	saved := cookies[memberCookie]
 	cookies[memberCookie] = &http.Cookie{Name: memberCookie, Value: code}

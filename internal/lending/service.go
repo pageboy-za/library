@@ -169,13 +169,14 @@ func (s *Service) Register(mux *http.ServeMux) {
 		var in struct {
 			CopyID     int64  `json:"copy_id"`
 			BorrowerID int64  `json:"borrower_id"`
+			CardCode   string `json:"card_code"`
 			Due        string `json:"due_date"`
 			Key        string `json:"request_key"`
 		}
 		if !decode(w, r, &in) {
 			return
 		}
-		id, e := s.Checkout(r.Context(), in.CopyID, in.BorrowerID, in.Due, in.Key)
+		id, e := s.Store.CheckoutWithCard(r.Context(), in.CopyID, in.BorrowerID, in.Due, in.Key, in.CardCode)
 		if e != nil {
 			failure(w, e)
 			return

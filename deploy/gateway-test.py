@@ -87,13 +87,13 @@ try:
                         return error.code, error.read()
                 while True:
                     try:
-                        assert request()[0] == 401
+                        assert request()[0] == 200
                         break
                     except (urllib.error.URLError, TimeoutError):
                         if time.monotonic() > deadline:
                             raise
                         time.sleep(0.1)
-                assert request({"Authorization": "Basic Zm9vOmJhcg=="})[0] == 401
+                assert request({"Authorization": "Basic Zm9vOmJhcg=="})[0] == 200
                 for bad in ["https://elsewhere.invalid", "null", "http://localhost", origin + ".invalid"]:
                     assert request({"Authorization": authorization, "Origin": bad}, "POST")[0] == 403
                 for headers in [{"Authorization": authorization}, {"Authorization": authorization, "Origin": origin}]:
@@ -106,7 +106,7 @@ try:
                 # Denied updater requests must stop before attempting the real
                 # socket. A passing auth check yields 502 for our absent fixture
                 # socket, proving that the gate forwarded only allowed requests.
-                headers = {"Authorization": authorization, "Origin": origin}
+                headers = {"Origin": origin}
                 assert request(headers, suffix="/api/updates/status")[0] == 403
                 headers["Cookie"] = "fixture-admin-session"
                 assert request(headers, "POST", "/api/updates/install")[0] == 403
@@ -114,7 +114,7 @@ try:
                 assert request(headers, "POST", "/api/updates/install")[0] == 502
                 assert request(headers, suffix="/api/updates/status")[0] == 502
                 assert request(suffix="/", base=f"http://localhost:{cert_port}")[0] == 404
-                print("PASS: TLS trust, login enforcement, foreign-Origin rejection, authenticated proxying, credential removal and certificate-only HTTP endpoint.")
+                print("PASS: TLS trust, anonymous browsing, foreign-Origin rejection, staff-only updater, credential removal and certificate-only HTTP endpoint.")
             finally:
                 if process.poll() is not None:
                     print((stage / "gateway.log").read_text())

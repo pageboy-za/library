@@ -1,3 +1,15 @@
+# v0.11.0 — self-service pass lending
+
+Release and Raspberry Pi deployment requested by Nealle on 17 October 2026.
+
+- Members choose a book, select Lend and scan an approved QR or Wallet pass to complete the loan without staff sign-in. A keyboard-mode QR reader or manual card-code entry is supported.
+- Current membership and copy availability are checked together. Suspended, replaced and archived passes cannot create loans; retries preserve the same operation and cannot lend another copy.
+- Staff lending also supports pass lookup, with the selected card rechecked when saving.
+- The separate shared browser login is removed from the trusted-network gateway through a reviewed administrator helper. HTTPS, origin checks, individual staff accounts and administrator-only update access remain in place.
+- Validation: standard Go suite, focused race checks, frontend checks/build and phone/desktop lending checks passed. A lost-response browser test confirmed exactly one loan. The full race suite hits the existing one-second save timing test. Packaging, gateway and signed release workflow checks run before publication.
+
+## Previous release record
+
 # v0.7.0 — approved mobile and search release
 
 Release and Pi installation requested by Nealle on 15 October 2026.

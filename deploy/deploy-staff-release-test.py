@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory() as directory:
  else:raise AssertionError('referenced cover traversal accepted')
  current=pathlib.Path(__file__).with_name('Caddyfile.lan.example').read_text()
  start=current.index('\n\t\t\t# Staff admin session');end=current.index('\n\t\t\treverse_proxy unix',start)
- legacy=current[:start]+current[end:]
+ legacy=(current[:start]+current[end:]).replace('route {', 'route {\n\t\tbasic_auth {\n\t\t\t{$LIBRARY_LOGIN_USER} {$LIBRARY_LOGIN_HASH}\n\t\t}',1)
  upgraded=module.gateway_with_staff(legacy.encode()).decode()
  assert upgraded.replace(upgraded[upgraded.index('\n\t\t\t# Require an individual'):upgraded.index('\n\t\t\treverse_proxy unix')],'')==legacy
  assert upgraded.count('/api/auth/authorize-update')==1

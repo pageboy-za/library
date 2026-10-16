@@ -41,8 +41,9 @@ catalogue data public.
 
 ## Remote application updates
 
-The HTTPS gateway checks the owner login and request origin. It overwrites the
-owner identity passed to a private Unix socket; the controller also checks the
+The HTTPS gateway checks the request origin and requires an individual staff
+administrator session before updater access. After that check it sets the
+installation owner identity passed to a private Unix socket; the controller also checks the
 connecting account. The browser submits only a release version and request ID,
 not a URL, command or filesystem path.
 

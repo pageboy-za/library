@@ -3,6 +3,7 @@ import {authenticatedFetch} from '../../lib/auth';
 import {onMount} from 'svelte';
 import {api, type Book, type Copy} from '../../lib/api';
 import BookFacts from './BookFacts.svelte';
+import MemberCardScanner from './MemberCardScanner.svelte';
 
 export let initialBookId:number;
 export let variant:'default'|'kiosk'='default';
@@ -12,7 +13,7 @@ type Loan = {id:number; copy_id:number; borrower_id:number; borrower:string; che
 type Pending = {
   kind:'lend'|'return'; bookId:number; title:string; copyId:number; copyLabel:string;
   borrowerId:number|null; borrowerName:string; borrowerKey:string; requestKey:string;
-  loanId:number|null;
+  loanId:number|null; cardCode?:string;
 };
 class MutationError extends Error {
   rejected:boolean;
@@ -27,6 +28,7 @@ let selectedCopyId:number|null=null;
 let borrowerName='';
 let newPerson=false;
 let selectedBorrowerId:number|null=null;
+let cardBusy=false;let scannedCard='';
 let loading=true;
 let refreshing=false;
 let busy=false;
@@ -46,13 +48,13 @@ $: exactMatches=borrowers.filter(person=>normalize(person.name)===query);
 $: suggestions=query&&!selectedBorrowerId
   ? exactMatches.length>1 ? exactMatches : borrowers.filter(person=>normalize(person.name).includes(query)).slice(0,6)
   : [];
-$: locked=busy||refreshing||!!pending;
+$: locked=busy||refreshing||cardBusy||!!pending;
 $: canLend=!!query&&(selectedBorrowerId!==null||exactMatches.length<2);
 $: shortcutBorrowers=borrowers.filter(person=>borrowers.filter(other=>normalize(other.name)===normalize(person.name)).length===1).slice(0,3);
 
 function loanStart(value:string) { const date=new Date(value); if(Number.isNaN(date.valueOf()))return ''; return date.toDateString()===new Date().toDateString()?'Borrowed today':`Since ${date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`; }
 
-function resetForm() { borrowerName=''; selectedBorrowerId=null; newPerson=false; }
+function resetForm() { scannedCard='';borrowerName=''; selectedBorrowerId=null; newPerson=false; }
 function copyName(value:Copy) { return value.label||`Copy ${value.id}`; }
 function shelfName(value:string) {
   const parts=value.split(' / ');
@@ -112,7 +114,7 @@ function select(event:Event) {
   const incoming=event as CustomEvent<{bookId:number}>;
   const next=incoming.detail?.bookId;
   if(!Number.isInteger(next)||next<=0)return;
-  if((busy||pending)&&next!==bookId) {
+  if((busy||cardBusy||pending)&&next!==bookId) {
     incoming.preventDefault();
     navigationNotice='Finish this lending update before choosing another book.';
     window.dispatchEvent(new CustomEvent('library-kiosk-selection-blocked',{
@@ -167,7 +169,7 @@ onMount(()=>{
 
 function chooseBorrower(person:Borrower) {
   if(locked)return;
-  selectedBorrowerId=person.id;
+  scannedCard='';selectedBorrowerId=person.id;
   borrowerName=person.name;
   error='';
 }
@@ -201,7 +203,7 @@ async function perform(operation:Pending) {
         selectedBorrowerId=operation.borrowerId;
       }
       await post('/api/loans',{
-        copy_id:operation.copyId,borrower_id:operation.borrowerId,
+        copy_id:operation.copyId,borrower_id:operation.borrowerId,...(operation.cardCode?{card_code:operation.cardCode}:{}),
         due_date:'',request_key:operation.requestKey
       });
     } else {
@@ -222,6 +224,7 @@ async function perform(operation:Pending) {
   } catch(cause) {
     if(cause instanceof MutationError&&cause.rejected) {
       pending=null;
+      if(operation.cardCode)resetForm();
       error=cause.message;
     } else {
       // The same operation and keys survive a retry, including a partially created borrower.
@@ -254,7 +257,7 @@ function lend(event?:SubmitEvent) {
   pending={
     kind:'lend',bookId,title:book.title,copyId:copy.id,copyLabel:copyName(copy),
     borrowerId,borrowerName:borrowers.find(person=>person.id===borrowerId)?.name??name,
-    borrowerKey:crypto.randomUUID(),requestKey:crypto.randomUUID(),loanId:null
+    borrowerKey:crypto.randomUUID(),requestKey:crypto.randomUUID(),loanId:null,cardCode:scannedCard||undefined
   };
   void perform(pending);
 }
@@ -313,6 +316,10 @@ function returnBook() {
           <p class="quiet">This copy is on loan. Refresh to load its return details.</p>
           <button type="button" class="text-action" disabled={busy||refreshing} onclick={()=>load()}>Refresh status</button>
         {:else}
+          {#key bookId}
+          <MemberCardScanner disabled={locked||!!loadError} busyChanged={(value)=>cardBusy=value} selected={(member)=>{selectedBorrowerId=member?.borrowerId??null;borrowerName=member?.name??'';scannedCard=member?.code??'';newPerson=true;error='';message='';}}/>
+          {/key}
+          {#if scannedCard}<p role="status">Member verified: <strong>{borrowerName}</strong></p>{/if}
           {#if variant==='kiosk'&&shortcutBorrowers.length&&!newPerson}
             <div class="quick-lend"><p class="task-heading">Lend this book to</p><div class="borrower-shortcuts">
               {#each shortcutBorrowers as person (person.id)}<button type="button" aria-label={`Lend to ${person.name}`} disabled={locked||!!loadError} onclick={()=>{chooseBorrower(person);lend();}}>{person.name}</button>{/each}
@@ -322,9 +329,9 @@ function returnBook() {
           <form onsubmit={lend}>
             <div class="lend-row">
               <label class="field">{variant==='kiosk'?'Lend this book':'Lend to'}
-                <input aria-label="Borrower’s name" value={borrowerName} placeholder="Borrower’s name" maxlength="200" autocomplete="off" required disabled={locked||!!loadError} oninput={(event)=>{borrowerName=event.currentTarget.value;selectedBorrowerId=null;error='';message='';}}/>
+                <input aria-label="Borrower’s name" value={borrowerName} placeholder="Borrower’s name" maxlength="200" autocomplete="off" required disabled={locked||!!loadError} oninput={(event)=>{scannedCard='';borrowerName=event.currentTarget.value;selectedBorrowerId=null;error='';message='';}}/>
               </label>
-              <button class="primary" disabled={locked||!!loadError||(variant!=='kiosk'&&!canLend)||(!!query&&exactMatches.length>1&&!selectedBorrowerId)}>Lend book</button>
+              <button class="primary" disabled={locked||!!loadError||!canLend||(!!query&&exactMatches.length>1&&!selectedBorrowerId)}>Lend book</button>
             </div>
             {#if suggestions.length}
               <ul class="suggestions" aria-label="Existing borrowers">

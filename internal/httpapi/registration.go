@@ -31,6 +31,10 @@ type registrationLimiter struct {
 }
 
 func (g *registrationLimiter) allow(key string) bool {
+	return g.allowWithin(key, 5, 10)
+}
+
+func (g *registrationLimiter) allowWithin(key string, perBrowser, perMinute int) bool {
 	g.Lock()
 	defer g.Unlock()
 	now := time.Now()
@@ -46,10 +50,10 @@ func (g *registrationLimiter) allow(key string) bool {
 			delete(g.recent, k)
 		}
 	}
-	if g.count >= 10 || len(g.recent) >= 1000 {
+	if g.count >= perMinute || len(g.recent) >= 1000 {
 		return false
 	}
-	if t, ok := g.recent[key]; ok && t.count >= 5 {
+	if t, ok := g.recent[key]; ok && t.count >= perBrowser {
 		return false
 	}
 	g.count++

@@ -66,6 +66,7 @@ func (s *Server) accessRequest(w http.ResponseWriter, r *http.Request) (*http.Re
 	p := r.URL.Path
 	public := p == "/healthz" || p == "/api/version" || p == "/api/auth/session" || p == "/api/auth/login" || (p == "/api/member/registration" && r.Method == http.MethodPost) || (p == "/api/member/card/google" && r.Method == http.MethodPost) || strings.HasPrefix(p, "/api/member/") && !unsafeMethod(r.Method)
 	staffPage := strings.HasPrefix(p, "/staff") && p != "/staff/login/" && p != "/staff/login"
+	public = public || (p == "/api/member/loans" && r.Method == http.MethodPost)
 	privateAPI := strings.HasPrefix(p, "/api/") && !public
 	if !privateAPI && !staffPage && !strings.HasPrefix(p, "/covers/") {
 		return r, true

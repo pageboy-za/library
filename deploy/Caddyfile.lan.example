@@ -11,9 +11,6 @@ https://library.local {
 	}
 	route {
 		respond @foreignOrigin "Same-origin access required" 403
-		basic_auth {
-			{$LIBRARY_LOGIN_USER} {$LIBRARY_LOGIN_HASH}
-		}
 		handle /api/updates/* {
 			# Staff admin session is checked before the trusted updater gateway.
 			forward_auth 127.0.0.1:8080 {
@@ -26,7 +23,7 @@ https://library.local {
 			reverse_proxy unix//run/home-library-updater/http.sock {
 				header_up Host 127.0.0.1:8090
 				header_up Origin http://127.0.0.1:8090
-				header_up X-Library-Owner {http.auth.user.id}
+				header_up X-Library-Owner nealle
 				header_up -Authorization
 			}
 		}

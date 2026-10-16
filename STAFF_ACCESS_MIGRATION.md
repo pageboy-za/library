@@ -18,7 +18,7 @@ migrated database. No live installation is performed by the development scripts.
    This refreshes helpers; it does not upgrade the gateway or application.
 3. An administrator must update the installed gateway configuration using the
    reviewed `deploy/Caddyfile.lan.example`. Preserve the installation's hostname,
-   TLS, outer basic login and foreign-Origin checks. The `/api/updates/*` handler
+   TLS and foreign-Origin checks. The `/api/updates/*` handler
    must run the Go `/api/auth/authorize-update` check before reaching the updater
    socket. After reviewing the ordering and security boundary, run
    `sudo python3 deploy/attest-staff-gateway.py --acknowledge-reviewed-gateway`.
@@ -42,7 +42,8 @@ migrated database. No live installation is performed by the development scripts.
    provides local recovery for an existing staff username; `list` shows accounts.
 5. Sign in through the gateway. Verify anonymous users cannot read borrowers,
    loans, private notes, staff records, backup status or updater status, and
-   cannot mutate data. Check librarian and administrator access separately,
+   cannot use staff mutation APIs. Verify self-service lending requires a current
+   approved pass and member CSRF token. Check librarian and administrator access separately,
    including that a librarian cannot manage accounts, settings or updates.
 6. Recheck books, copies, loans, settings, covers and service health against the
    baseline. Exercise saves and lending only with independent disposable data.
@@ -68,15 +69,15 @@ Raspberry Pi. Node is needed only while building. Release bundles now include
 `bin/library-account`; schema 2 manifests declare `rollback_compatible: false`.
 
 Run Go tests, frontend checks/build, updater rejection/recovery tests and the
-fully disposable `deploy/offline-acceptance.sh` before a release. The existing
-outer gateway login is deliberately retained as an additional private-LAN
-boundary; it does not substitute for individual staff permissions.
+fully disposable `deploy/offline-acceptance.sh` before a release. The shared gateway login can be removed on the trusted household network with
+the reviewed `deploy/open-network-access.py` administrator helper. Individual
+staff permissions and updater authorization remain required.
 
 ## Permissions
 
 | Experience | Access |
 | --- | --- |
-| Member, no sign-in | Catalogue, public book descriptions, selected covers and availability |
+| Member, no sign-in | Catalogue, public book descriptions, selected covers and availability; self-service loans with a current approved pass |
 | Librarian | Member access plus books, copies, shelves, borrowers and lending |
 | Administrator | Librarian access plus staff accounts, settings, backup status and updates |
 
@@ -102,8 +103,18 @@ code's destination, not network exposure. The server still binds to loopback and
 the existing TLS gateway remains the LAN entry point.
 
 Approved cards show a name and random card number. Staff scan or type the number
-to find the borrower. A card number never grants browser access, private contact
-details or staff permissions. The browser's receipt is a different random secret,
+to find the borrower. Members can also open a book from the public catalogue,
+choose **Lend**, then scan their pass to complete a loan without staff sign-in.
+This uses a QR scanner that types the code and presses Enter; entering a card
+code manually is also supported. There is no camera scanner in this flow.
+Possession of a current approved card authorizes borrowing against that membership;
+a card number never grants browser account access, private contact details or
+staff permissions. Treat downloaded passes as personal cards. The self-service
+endpoint derives the borrower and assigns an available copy in one transaction,
+returns no borrower details, and preserves the request key for safe retries.
+Suspended, replaced and archived cards cannot create new loans. An uncertain
+result keeps the operation open for retry; a duplicate retry confirms the same
+loan, even if a card has since been replaced. The browser's receipt is a different random secret,
 kept in an HttpOnly cookie; only its hash is stored in SQLite. It expires after
 30 days. Clearing cookies loses browser access; a downloaded card can still be
 used while the membership remains active. Staff approval does not send email.

@@ -1,8 +1,8 @@
 # Household network and iPad kiosk
 
 The optional Caddy gateway makes the library available at
-`https://library.local` on the household network. It uses HTTPS and a browser
-login. The Go application stays on `127.0.0.1:8080`; neither its listener nor
+`https://library.local` on the household network. It uses HTTPS, with browsing available to everyone on the trusted network.
+Staff tools require individual staff sign-in. The Go application stays on `127.0.0.1:8080`; neither its listener nor
 its existing Host/Origin checks are weakened.
 
 The gateway rejects foreign browser Origins before translating accepted
@@ -21,11 +21,13 @@ containing these files:
   from `deploy/`.
 - `gateway-SHA256SUMS`: SHA-256 sums for the four files above.
 
-From that directory, run `sudo sh install-lan.sh` interactively. It verifies
-the bundle, refuses to replace an existing gateway installation, and asks you
-to create the library web login password. The username is `nealle`. The
-password hash is stored in root-readable `/etc/home-library-gateway/login.env`,
-outside the source checkout. The dedicated `library-gateway` account owns the
+From that directory, run `sudo sh install-lan.sh`. It verifies the bundle and
+refuses to replace an existing gateway installation. No shared browser password
+is required. On an existing staff-enabled installation, an administrator can run
+`sudo python3 deploy/open-network-access.py` from reviewed source to remove the
+shared login. This saves the previous gateway config, validates and restarts the
+gateway, checks anonymous browsing and staff-only update access, and refreshes
+the updater attestation. Failure restores the original gateway. The dedicated `library-gateway` account owns the
 local certificate authority and cannot read the household application's
 private state directory.
 
@@ -44,8 +46,8 @@ For an iPad on the same Wi-Fi:
    the installer output before approving it.
 3. Install the downloaded profile in Settings. Then go to **General > About >
    Certificate Trust Settings** and enable full trust for the local Caddy root.
-4. Open `https://library.local` and sign in as `nealle` using the library web
-   password you created.
+4. Open `https://library.local`. Browsing needs no sign-in. Choose a book,
+   tap Lend and scan an approved pass to borrow it. Staff sign in separately.
 
 Apple's [certificate-trust instructions](https://support.apple.com/102390)
 explain the separate installation and trust steps. Trusting this local root
@@ -84,9 +86,9 @@ installed application: the iPad must remain connected to the Pi.
 ## Validation and maintenance
 
 Run `CADDY_BIN=/path/to/caddy python3 deploy/gateway-test.py` on a development
-machine. It uses disposable loopback services and a fixture login to check TLS
-trust, missing/incorrect login rejection, foreign-Origin rejection, successful
-authenticated proxying, removal of credentials before proxying, and the
+machine. It uses disposable loopback services to check TLS trust, anonymous
+browsing, foreign-Origin rejection, staff-only updater access, removal of
+credentials before proxying, and the
 certificate-only HTTP endpoint. It does not test an iPad or real scanner.
 
 Inspect `systemctl status home-library-gateway` and

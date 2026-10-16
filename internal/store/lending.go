@@ -125,6 +125,11 @@ func (s *Store) ArchiveBorrower(ctx context.Context, id int64) error {
 	return nil
 }
 func (s *Store) Checkout(ctx context.Context, copyID, borrowerID int64, due, key string) (int64, error) {
+	return s.CheckoutWithCard(ctx, copyID, borrowerID, due, key, "")
+}
+
+// CheckoutWithCard revalidates a scanned card in the same transaction as the loan.
+func (s *Store) CheckoutWithCard(ctx context.Context, copyID, borrowerID int64, due, key, cardCode string) (int64, error) {
 	if copyID <= 0 || borrowerID <= 0 {
 		return 0, errors.New("Choose a copy and borrower")
 	}
@@ -140,7 +145,21 @@ func (s *Store) Checkout(ctx context.Context, copyID, borrowerID int64, due, key
 		return 0, e
 	}
 	defer tx.Rollback()
-	id, e := loanMutation(ctx, tx, key, []any{"checkout", copyID, borrowerID, due}, func() (int64, error) {
+	payload := []any{"checkout", copyID, borrowerID, due}
+	if cardCode != "" {
+		payload = append(payload, cardCode)
+	}
+	id, e := loanMutation(ctx, tx, key, payload, func() (int64, error) {
+		if cardCode != "" {
+			var valid int
+			if e := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM member_registrations WHERE card_code=? AND borrower_id=? AND status='approved'", cardCode, borrowerID).Scan(&valid); e != nil {
+				return 0, e
+			}
+			if valid != 1 {
+				return 0, errors.New("This member card is unavailable or has been replaced. Scan a current approved card")
+			}
+		}
+
 		var count int
 		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM copies c,borrowers b WHERE c.id=? AND c.archived_at IS NULL AND EXISTS(SELECT 1 FROM books WHERE id=c.book_id AND deleted_at IS NULL) AND b.id=? AND b.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM member_registrations mr WHERE mr.borrower_id=b.id AND mr.status!='approved')`, copyID, borrowerID).Scan(&count); e != nil {
 			return 0, e

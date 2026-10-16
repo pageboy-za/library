@@ -8,7 +8,7 @@ Type=simple
 User=library-gateway
 Group=library-gateway
 Environment=HOME=/var/lib/library-gateway
-EnvironmentFile=/etc/home-library-gateway/login.env
+EnvironmentFile=-/etc/home-library-gateway/login.env
 ExecStart=/usr/local/bin/library-caddy run --config /etc/home-library-gateway/Caddyfile --adapter caddyfile
 Restart=on-failure
 RestartSec=5
