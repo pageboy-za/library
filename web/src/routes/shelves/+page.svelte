@@ -1,7 +1,6 @@
 <script lang="ts">
-import Shelves from '../../components/library/Shelves.svelte';
-import ClientOnly from '../../components/library/ClientOnly.svelte';
-import PageHeading from '../../components/library/PageHeading.svelte';
+import {onMount} from 'svelte';
+import {goto} from '$app/navigation';
+onMount(()=>{void goto('/staff/shelves/'+location.search,{replaceState:true});});
 </script>
-<PageHeading title="Your shelves" description="Name your bookcases and shelves so you can find a book when you need it."/>
-<ClientOnly><Shelves/></ClientOnly>
+<h1>Staff area</h1><p>Opening the staff area…</p><a href="/staff/shelves/">Continue to staff area</a>

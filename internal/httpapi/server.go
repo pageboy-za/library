@@ -5,14 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"home-library/internal/auth"
 	"home-library/internal/catalogue"
 	"home-library/internal/covers"
 	"home-library/internal/lending"
 	"home-library/internal/library"
 	"home-library/internal/locations"
+	"home-library/internal/membership"
 	"home-library/internal/metadata"
 	"home-library/internal/metrics"
 	"home-library/internal/store"
+	"home-library/internal/wallet"
 	"io"
 	"net"
 	"net/http"
@@ -27,21 +30,28 @@ import (
 )
 
 type Server struct {
-	Lifecycle         context.Context
-	backgroundMu      sync.Mutex
-	backgroundBooks   map[int64]struct{}
-	backgroundRunning bool
-	Version           string
-	Commit            string
-	MaintenancePath   string
-	ActiveWrites      atomic.Int64
-	BackupDirectory   string
-	Store             *store.Store
-	Metadata          *metadata.Client
-	Web               string
-	Covers            *covers.Service
-	Enrichment        *catalogue.EnrichmentService
-	Pages             interface {
+	Access              *auth.Service
+	Membership          *membership.Service
+	Wallet              *wallet.Service
+	PublicURL           string
+	registrationLimiter registrationLimiter
+	SecureCookies       bool
+	loginGuard          loginGuard
+	Lifecycle           context.Context
+	backgroundMu        sync.Mutex
+	backgroundBooks     map[int64]struct{}
+	backgroundRunning   bool
+	Version             string
+	Commit              string
+	MaintenancePath     string
+	ActiveWrites        atomic.Int64
+	BackupDirectory     string
+	Store               *store.Store
+	Metadata            *metadata.Client
+	Web                 string
+	Covers              *covers.Service
+	Enrichment          *catalogue.EnrichmentService
+	Pages               interface {
 		Ensure(context.Context) error
 		Directory() string
 	}
@@ -91,6 +101,9 @@ func decode(w http.ResponseWriter, r *http.Request, v any) error {
 func id(r *http.Request) int64 { v, _ := strconv.ParseInt(r.PathValue("id"), 10, 64); return v }
 func (s *Server) Handler() http.Handler {
 	m := http.NewServeMux()
+	s.registerAccess(m)
+	s.registerMember(m)
+	s.registerMembership(m)
 	if assets, ok := s.Pages.(interface{ AssetsDirectory() string }); ok {
 		m.HandleFunc("GET /_astro/", func(w http.ResponseWriter, r *http.Request) {
 			relative := strings.TrimPrefix(path.Clean(r.URL.Path), "/_astro/")
@@ -389,6 +402,14 @@ func (s *Server) Handler() http.Handler {
 		}
 		http.Redirect(w, r, fmt.Sprintf("/books/%d/", id(r)), http.StatusSeeOther)
 	})
+	m.HandleFunc("GET /staff/books/{id}/{$}", func(w http.ResponseWriter, r *http.Request) {
+		if _, e := s.Store.Book(r.Context(), id(r)); e != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		http.ServeFile(w, r, filepath.Join(s.Web, "book-view", "index.html"))
+	})
 	m.HandleFunc("GET /books/{id}/{$}", func(w http.ResponseWriter, r *http.Request) {
 		if _, e := s.Store.Book(r.Context(), id(r)); e != nil {
 			http.Error(w, "Book not found", 404)
@@ -470,7 +491,9 @@ func (s *Server) Handler() http.Handler {
 				}
 			}
 		}
-		m.ServeHTTP(w, r)
+		if authorized, ok := s.accessRequest(w, r); ok {
+			m.ServeHTTP(w, authorized)
+		}
 	})
 }
 func Listen(addr string) error {

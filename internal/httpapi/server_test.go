@@ -25,7 +25,7 @@ func TestPreservedIslandAssetsAndNoDirectoryListing(t *testing.T) {
 	defer s.DB.Close()
 	assets := t.TempDir()
 	os.WriteFile(filepath.Join(assets, "old.123.js"), []byte("old island"), 0600)
-	h := (&Server{Store: s, Pages: assetPages{t.TempDir(), assets}}).Handler()
+	h := (&Server{Store: s, Pages: assetPages{t.TempDir(), assets}}).testHandler(t)
 	for _, test := range []struct {
 		path   string
 		status int
@@ -48,7 +48,7 @@ func TestBoundaryAndScan(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer s.DB.Close()
-	h := (&Server{Store: s, Metadata: metadata.New(), Web: t.TempDir()}).Handler()
+	h := (&Server{Store: s, Metadata: metadata.New(), Web: t.TempDir()}).testHandler(t)
 	call := func(method, path, body, origin string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, "http://localhost:8080"+path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")

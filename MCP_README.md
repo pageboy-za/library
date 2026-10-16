@@ -2,6 +2,8 @@
 
 The browser and MCP read the same owned catalogue and stable numeric book IDs. This first version is deliberately read-only: there are no tools for creating books, changing copies, loans or uploading images, and no external metadata requests.
 
+The local MCP process is a privileged, staff-equivalent reader: its OS user can read the database, including private catalogue information. Connect it only to trusted local clients. It does not use browser staff sessions and must not be exposed as an anonymous network service. Staff password hashes and session records are never returned by its tools.
+
 ## Build and run
 
 From the repository root, with Go installed:

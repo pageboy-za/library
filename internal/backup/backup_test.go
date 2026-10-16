@@ -129,3 +129,58 @@ func TestUnsafeManifest(t *testing.T) {
 		t.Fatal("unsafe path accepted")
 	}
 }
+
+func TestStaffBackupPreservesAccountsButInvalidatesRestoredSessions(t *testing.T) {
+	ctx := context.Background()
+	source := t.TempDir()
+	s, err := store.Open(filepath.Join(source, "library.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.DB.Close()
+	// Synthetic records deliberately avoid expensive password generation: backup
+	// must preserve opaque hashes exactly, without exporting them to catalogue JSON.
+	_, err = s.DB.Exec(`INSERT INTO staff_users(id,username,display_name,role,password_hash,created_at,updated_at) VALUES(1,'fixture','Fixture','administrator','PRIVATE_HASH_FIXTURE',1,1);
+ INSERT INTO staff_sessions(token_hash,user_id,created_at,expires_at,last_seen_at) VALUES('PRIVATE_SESSION_FIXTURE',1,1,9999999999,1)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "snapshot")
+	if err = Create(ctx, source, archive); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(archive, "catalogue.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var exported Export
+	if err = json.Unmarshal(raw, &exported); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := exported.Tables["staff_users"]; ok {
+		t.Fatal("staff credentials leaked into catalogue export")
+	}
+	if _, ok := exported.Tables["staff_sessions"]; ok {
+		t.Fatal("staff sessions leaked into catalogue export")
+	}
+	restored := filepath.Join(t.TempDir(), "restored")
+	if err = Restore(ctx, archive, restored); err != nil {
+		t.Fatal(err)
+	}
+	restoredDB, err := openRead(filepath.Join(restored, "library.sqlite"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restoredDB.Close()
+	var hash string
+	if err = restoredDB.QueryRow("SELECT password_hash FROM staff_users WHERE id=1").Scan(&hash); err != nil || hash != "PRIVATE_HASH_FIXTURE" {
+		t.Fatal(hash, err)
+	}
+	var count int
+	if err = restoredDB.QueryRow("SELECT COUNT(*) FROM staff_sessions").Scan(&count); err != nil || count != 0 {
+		t.Fatal("restored sessions must be invalidated", count, err)
+	}
+	if err = Verify(ctx, archive); err != nil {
+		t.Fatal("restore modified original backup", err)
+	}
+}

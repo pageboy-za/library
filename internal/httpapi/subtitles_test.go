@@ -21,7 +21,7 @@ func TestSubtitleBatchCommitAndPublicationRecovery(t *testing.T) {
 		t.Fatal(e)
 	}
 	p := &recoveringPages{directory: t.TempDir(), fail: true}
-	h := (&Server{Store: s, Pages: p}).Handler()
+	h := (&Server{Store: s, Pages: p}).testHandler(t)
 	call := func(path, body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "http://localhost:8080"+path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")

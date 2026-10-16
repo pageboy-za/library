@@ -1,4 +1,7 @@
 // Package mcpserver exposes the local owned catalogue through read-only MCP tools.
+// The stdio/local process is a privileged operator channel: discovery may read
+// private catalogue notes. It is separate from anonymous member HTTP access.
+// Tools expose explicit catalogue models, never staff credentials or sessions.
 package mcpserver
 
 import (

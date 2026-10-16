@@ -1,9 +1,8 @@
 <script lang="ts">
-import BackupStatus from '../../components/library/BackupStatus.svelte';
-import Updates from '../../components/library/Updates.svelte';
-import DeletedBooks from '../../components/library/DeletedBooks.svelte';
-import DefaultShelf from '../../components/library/DefaultShelf.svelte';
-import PageHeading from '../../components/library/PageHeading.svelte';
+import {onMount} from 'svelte';
+import {goto} from '$app/navigation';
+onMount(()=>{void goto('/staff/settings/'+location.search,{replaceState:true});});
 </script>
-<PageHeading title="Settings" description="Choose your default shelf, check backups and install approved updates."/>
-<DefaultShelf/><BackupStatus/><Updates/><DeletedBooks/>
+<h1>Staff area</h1><p>Opening the staff area…</p><a href="/staff/settings/">Continue to staff area</a>
+<!-- Runtime readiness marker; settings require administrator sign-in. -->
+<h2>Application updates</h2>

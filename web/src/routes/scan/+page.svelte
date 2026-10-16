@@ -1,7 +1,6 @@
 <script lang="ts">
-import ScanBook from '../../components/library/ScanBook.svelte';
-import ClientOnly from '../../components/library/ClientOnly.svelte';
-import PageHeading from '../../components/library/PageHeading.svelte';
+import {onMount} from 'svelte';
+import {goto} from '$app/navigation';
+onMount(()=>{void goto('/staff/scan/'+location.search,{replaceState:true});});
 </script>
-<PageHeading title="Add a book" description="Scan an ISBN or add details manually."/>
-<ClientOnly><ScanBook/></ClientOnly>
+<h1>Staff area</h1><p>Opening the staff area…</p><a href="/staff/scan/">Continue to staff area</a>

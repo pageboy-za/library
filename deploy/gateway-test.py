@@ -25,6 +25,13 @@ def free_port():
 
 class Backend(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path == "/api/auth/authorize-update":
+            allowed = self.headers.get("Cookie") == "fixture-admin-session"
+            if self.headers.get("X-Forwarded-Method") not in ("GET", "HEAD"):
+                allowed = allowed and self.headers.get("X-CSRF-Token") == "fixture-csrf"
+            self.send_response(200 if allowed else 403)
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
@@ -96,6 +103,16 @@ try:
                     assert received["host"] == upstream
                     assert received["origin"] == "http://" + upstream
                     assert "authorization" not in received
+                # Denied updater requests must stop before attempting the real
+                # socket. A passing auth check yields 502 for our absent fixture
+                # socket, proving that the gate forwarded only allowed requests.
+                headers = {"Authorization": authorization, "Origin": origin}
+                assert request(headers, suffix="/api/updates/status")[0] == 403
+                headers["Cookie"] = "fixture-admin-session"
+                assert request(headers, "POST", "/api/updates/install")[0] == 403
+                headers["X-CSRF-Token"] = "fixture-csrf"
+                assert request(headers, "POST", "/api/updates/install")[0] == 502
+                assert request(headers, suffix="/api/updates/status")[0] == 502
                 assert request(suffix="/", base=f"http://localhost:{cert_port}")[0] == 404
                 print("PASS: TLS trust, login enforcement, foreign-Origin rejection, authenticated proxying, credential removal and certificate-only HTTP endpoint.")
             finally:

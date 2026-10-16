@@ -7,12 +7,13 @@ import BookWorkspace from './BookWorkspace.svelte';
 import QuickScan from './QuickScan.svelte';
 import BookFacts from './BookFacts.svelte';
 import {openLibraryUrl} from '../../lib/openLibrary';
+export let bookId:number|undefined=undefined;
 let book:Book|null=null;let error='';let description='';let subjects:string[]=[];let editing=false;let stopped=false;
 $: openLibraryHref=book ? openLibraryUrl(book) : '';
 let coverTimer:ReturnType<typeof setTimeout>;let attempts=0;
 async function load(){
  error='';
- const id=Number(window.location.pathname.split('/')[2]);
+ const id=bookId??Number(window.location.pathname.split('/').filter(Boolean).at(-1));
  try{
   const value=await api<Book>(`/api/books/${id}`);
   if(stopped)return;
@@ -29,7 +30,7 @@ onDestroy(()=>{stopped=true;clearTimeout(coverTimer);});
 {#if error}<p role="alert" class="library-error">{error}</p><button class="library-button" onclick={load}>Try again</button>{/if}
 {#if book}
 <article class="book-page" data-book-id={book.id} data-book-revision={book.revision}>
-  <div class="book-page_top"><a class="book-page_back" href="/">← Back to library</a><QuickScan/></div>
+  <div class="book-page_top"><a class="book-page_back" href="/staff/">← Back to library</a><QuickScan/></div>
   <div class="book-page_body">
     <aside class="book-page_cover" aria-label="Book cover">
       {#if book.cover_url}<img src={book.cover_url} alt={`Cover of ${book.title}`}/>{:else}<div class="book-page_no-cover"><span>Cover unavailable</span></div>{/if}
@@ -51,7 +52,7 @@ onDestroy(()=>{stopped=true;clearTimeout(coverTimer);});
     <CoverPicker bookId={book.id}/>
     <DiscoveryEditor bookId={book.id}/>
     {#if description}<section class="book-page_about"><h2>About this book</h2><p>{description}</p></section>{/if}
-    {#if subjects.length}<section class="book-page_subjects"><h2>Subjects</h2><ul>{#each subjects as subject}<li><a href={`/catalogue/?subject=${encodeURIComponent(subject)}`}>{subject}</a></li>{/each}</ul></section>{/if}
+    {#if subjects.length}<section class="book-page_subjects"><h2>Subjects</h2><ul>{#each subjects as subject}<li><a href={`/staff/catalogue/?subject=${encodeURIComponent(subject)}`}>{subject}</a></li>{/each}</ul></section>{/if}
   </div>
 </article>
 {:else if !error}<p role="status">Loading book…</p>{/if}

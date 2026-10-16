@@ -3,7 +3,9 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"home-library/internal/auth"
 	"home-library/internal/store"
 	"os"
 	"path/filepath"
@@ -29,6 +31,31 @@ func TestToolsOverMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	access := auth.New(writer.DB)
+	user, err := access.Bootstrap(ctx, "private-staff-sentinel", "Private staff sentinel", "private password sentinel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	staffSession, err := access.CreateSession(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var passwordHash string
+	if err = writer.DB.QueryRow("SELECT password_hash FROM staff_users WHERE id=?", user.ID).Scan(&passwordHash); err != nil {
+		t.Fatal(err)
+	}
+	assertNoStaffData := func(value any) {
+		t.Helper()
+		raw, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, secret := range []string{"private-staff-sentinel", "Private staff sentinel", passwordHash, staffSession.Token, staffSession.CSRFToken, "staff_users", "staff_sessions"} {
+			if strings.Contains(string(raw), secret) {
+				t.Fatalf("MCP exposed staff data %q", secret)
+			}
+		}
+	}
 	reader, err := OpenReadOnly(path)
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +76,7 @@ func TestToolsOverMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertNoStaffData(tools)
 	if len(tools.Tools) != 3 {
 		t.Fatalf("tools: %+v", tools.Tools)
 	}
@@ -61,6 +89,7 @@ func TestToolsOverMCP(t *testing.T) {
 	if err != nil || result.IsError {
 		t.Fatalf("search: %v %+v", err, result)
 	}
+	assertNoStaffData(result)
 	raw, _ := json.Marshal(result.StructuredContent)
 	var search SearchOutput
 	if err = json.Unmarshal(raw, &search); err != nil {
@@ -73,10 +102,12 @@ func TestToolsOverMCP(t *testing.T) {
 	if err != nil || result.IsError {
 		t.Fatalf("get: %v %+v", err, result)
 	}
+	assertNoStaffData(result)
 	result, err = clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "list_shelves", Arguments: map[string]any{}})
 	if err != nil || result.IsError {
 		t.Fatalf("shelves: %v %+v", err, result)
 	}
+	assertNoStaffData(result)
 	for _, args := range []map[string]any{{"id": "bad"}, {"id": 0}, {"id": 999}, {}} {
 		result, err = clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "get_book", Arguments: args})
 		if err == nil && !result.IsError {
@@ -161,5 +192,40 @@ func TestLegacyShelfLedgerHasFriendlyReadOnlyError(t *testing.T) {
 	var count int
 	if err = reader.DB.QueryRow("SELECT count(*) FROM sqlite_master WHERE name='location_versions'").Scan(&count); err != nil || count != 0 {
 		t.Fatalf("MCP migrated ledger: %d %v", count, err)
+	}
+}
+
+func TestSchemaCompatibilityWithoutMigration(t *testing.T) {
+	for _, version := range []int{1, 2, 3} {
+		t.Run(fmt.Sprintf("schema-%d", version), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "library.sqlite")
+			writer, err := store.Open(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer writer.DB.Close()
+			if _, err = writer.DB.Exec(fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {
+				t.Fatal(err)
+			}
+			reader, err := OpenReadOnly(path)
+			if version == 3 {
+				if err == nil {
+					reader.DB.Close()
+					t.Fatal("future schema accepted")
+				}
+			} else {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err = reader.DB.Exec("DELETE FROM staff_users"); err == nil {
+					t.Fatal("staff table writable through read-only connection")
+				}
+				reader.DB.Close()
+			}
+			var after int
+			if err = writer.DB.QueryRow("PRAGMA user_version").Scan(&after); err != nil || after != version {
+				t.Fatalf("MCP changed database version: %d %v", after, err)
+			}
+		})
 	}
 }

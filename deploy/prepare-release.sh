@@ -10,8 +10,9 @@ fi
 mkdir -p "$library_output/runtime-root/bin" "$library_output/runtime-root/web"
 CGO_ENABLED=0 go build -trimpath -ldflags "-X main.version=$library_version -X main.commit=$library_commit" -o "$library_output/runtime-root/bin/library" ./cmd/library
 CGO_ENABLED=0 go build -trimpath -o "$library_output/runtime-root/bin/library-backup" ./cmd/library-backup
+CGO_ENABLED=0 go build -trimpath -o "$library_output/runtime-root/bin/library-account" ./cmd/library-account
 # Build once on the release machine. The installed application needs no Node runtime.
 (cd web && LIBRARY_APP_VERSION="$library_version" npm run build)
 cp -R web/dist/. "$library_output/runtime-root/web/"
-cp LICENSE web/*_LICENSE "$library_output/runtime-root/web/"
+cp LICENSE THIRD_PARTY_NOTICES.md web/*_LICENSE "$library_output/runtime-root/web/"
 python3 deploy/build-release.py --root "$library_output/runtime-root" --out "$library_output/assets" --version "$library_version" --commit "$library_commit"

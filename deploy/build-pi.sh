@@ -29,11 +29,12 @@ go test ./...
 mkdir -p bin
 CGO_ENABLED=0 go build -trimpath -o bin/library ./cmd/library
 CGO_ENABLED=0 go build -trimpath -o bin/library-backup ./cmd/library-backup
+CGO_ENABLED=0 go build -trimpath -o bin/library-account ./cmd/library-account
 CGO_ENABLED=0 go build -trimpath -o bin/library-mcp ./cmd/library-mcp
 {
   go version
   node --version
   npm --version
-  sha256sum go.mod go.sum web/package-lock.json bin/library bin/library-backup bin/library-mcp
+  sha256sum go.mod go.sum web/package-lock.json bin/library bin/library-backup bin/library-account bin/library-mcp
 } > bin/build-info.txt
 printf '%s\n' 'Built. Start ./bin/library -web web/dist from this directory. Node is not needed at runtime. See PI_README.md for installation.'

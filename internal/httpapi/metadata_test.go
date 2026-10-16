@@ -30,7 +30,7 @@ func TestMetadataRefreshOnlyPreparesDraft(t *testing.T) {
 	defer provider.Close()
 	client := metadata.NewWithCache(t.TempDir())
 	client.Base = provider.URL
-	h := (&Server{Store: s, Metadata: client}).Handler()
+	h := (&Server{Store: s, Metadata: client}).testHandler(t)
 	call := func(method, path, body, origin string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, "http://localhost:8080"+path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")

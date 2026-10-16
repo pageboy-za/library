@@ -1,7 +1,6 @@
 <script lang="ts">
-import Loans from '../../components/library/Loans.svelte';
-import ClientOnly from '../../components/library/ClientOnly.svelte';
-import PageHeading from '../../components/library/PageHeading.svelte';
+import {onMount} from 'svelte';
+import {goto} from '$app/navigation';
+onMount(()=>{void goto('/staff/loans/'+location.search,{replaceState:true});});
 </script>
-<PageHeading title="Loans & returns" description="See who has your books, when they are due, and record returns."/>
-<ClientOnly><Loans/></ClientOnly>
+<h1>Staff area</h1><p>Opening the staff area…</p><a href="/staff/loans/">Continue to staff area</a>

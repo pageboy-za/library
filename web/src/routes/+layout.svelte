@@ -2,10 +2,13 @@
 import '../styles/global.css';
 import '../styles/app.css';
 import { page } from '$app/state';
+import {onMount} from 'svelte';
+import {loadSession} from '../lib/auth';
+onMount(()=>{void loadSession().catch(()=>{});});
 import Nav from '../components/global/Nav.svelte';
 import favicon from '../assets/library-favicon.svg?url';
 let { children } = $props();
-const kiosk = $derived(page.url.pathname === '/');
+const kiosk = $derived(page.url.pathname === '/staff/');
 $effect(() => {
   document.body.classList.toggle('library-kiosk', kiosk);
   return () => document.body.classList.remove('library-kiosk');
@@ -20,7 +23,7 @@ $effect(() => {
 {:else}
 <a class="skip-link" href="#main">Skip to main content</a>
 <Nav/>
-<main id="main" tabindex="-1" class="app-main"><div class="app-content">{#key page.url.pathname + page.url.search}{@render children()}{/key}</div></main>
+<main id="main" tabindex="-1" class="app-main"><div class="app-content" id={page.url.pathname==='/'?'kiosk-search-shell':undefined}>{#key page.url.pathname + page.url.search}{@render children()}{/key}</div></main>
 {/if}
 <style>
 .skip-link {position:fixed;top:1rem;left:1rem;z-index:100;transform:translateY(-200%)}

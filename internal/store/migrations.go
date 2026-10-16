@@ -5,13 +5,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"home-library/internal/auth"
+	"home-library/internal/membership"
 	"strings"
 )
 
-const supportedSchemaVersion = 1
+const supportedSchemaVersion = 2
 
-// Core v1 is the original library schema. Additive feature tables leave its
-// compatibility version unchanged; a newer core version is never downgraded.
+// Schema v2 adds staff identities and sessions. Older binaries must refuse this
+// database rather than expose staff-protected data without access controls.
 func prepareDatabase(ctx context.Context, db *sql.DB) error {
 	var version int
 	if e := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); e != nil {
@@ -119,7 +121,25 @@ func prepareDatabase(ctx context.Context, db *sql.DB) error {
 	if e = validateFeatures(ctx, tx); e != nil {
 		return e
 	}
+	if e = auth.EnsureSchema(ctx, tx); e != nil {
+		return fmt.Errorf("Initialize staff accounts: %w", e)
+	}
+	if e = validateColumns(ctx, tx, map[string]string{
+		"staff_users":    "id,username,display_name,role,enabled,password_hash,created_at,updated_at",
+		"staff_sessions": "token_hash,user_id,created_at,expires_at,last_seen_at",
+	}); e != nil {
+		return e
+	}
+	if e = membership.EnsureSchema(ctx, tx); e != nil {
+		return fmt.Errorf("Initialize member registrations: %w", e)
+	}
+	if e = validateColumns(ctx, tx, map[string]string{"member_registrations": "id,name,email,telephone,status,receipt_token_hash,receipt_expires_at,submitted_at,reviewed_at,reviewed_by,borrower_id,card_code"}); e != nil {
+		return e
+	}
 	if e = checkForeignKeys(ctx, tx); e != nil {
+		return e
+	}
+	if _, e = tx.ExecContext(ctx, "PRAGMA user_version=2"); e != nil {
 		return e
 	}
 	if e = tx.Commit(); e != nil {

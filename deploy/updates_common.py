@@ -21,7 +21,7 @@ def read_json(path):
 def verify(manifest,signature,key,verifier):
  subprocess.run([str(verifier),'-action','verify','-key',str(key),'-manifest',str(manifest),'-signature',str(signature)],check=True,timeout=30,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
  m=read_json(manifest)
- if m.get('format')!=1 or not VERSION.fullmatch(m.get('version','')) or m.get('arch')!='linux-arm64' or m.get('schema')!=1 or m.get('rollback_compatible') is not True:raise ValueError('Incompatible release')
+ if m.get('format')!=1 or not VERSION.fullmatch(m.get('version','')) or m.get('arch')!='linux-arm64' or type(m.get('schema')) is not int or not ((m['schema']==1 and m.get('rollback_compatible') is True) or (m['schema']==2 and m.get('rollback_compatible') is False)):raise ValueError('Incompatible release')
  if not re.fullmatch('[0-9a-f]{40}',m.get('commit','')) or not re.fullmatch('[0-9a-f]{64}',m.get('bundle_sha256','')):raise ValueError('Invalid release identity')
  if not isinstance(m.get('files'),list) or len(m['files'])>50000:raise ValueError('Invalid file list')
  if 'runtime' in m and m['runtime']!='static-v1':raise ValueError('Unsupported release runtime')
@@ -42,6 +42,9 @@ def verify(manifest,signature,key,verifier):
  if any(str(parent) in links for n in names for parent in pathlib.PurePosixPath(n).parents):raise ValueError('Path traverses symbolic link')
  if size!=m.get('unpacked_size') or size>2<<30:raise ValueError('Invalid expanded size')
  required_files=['bin/library','bin/library-backup']
+ if m.get('schema')==2:
+  required_files+=['bin/library-account','web/join/index.html','web/membership/index.html','web/staff/login/index.html','web/staff/members/index.html']
+  if m.get('runtime')!='static-v1':raise ValueError('Staff permissions require static runtime')
  if m.get('runtime')=='static-v1':
   required_files+=['web/index.html','web/book-view/index.html','web/settings/index.html','web/scan/index.html']
   if any(n.startswith(('runtime/','web/node_modules/','web/src/','web/.svelte-kit/')) for n in names):raise ValueError('Static runtime contains development dependencies')
@@ -125,3 +128,15 @@ def safe_copy(source,destination,limit):
     dst.write(chunk)
    dst.flush();os.fsync(dst.fileno())
  finally:os.close(fd)
+
+
+def require_staff_gateway(config=pathlib.Path('/etc/home-library-gateway/Caddyfile'),marker=pathlib.Path('/etc/home-library-gateway/staff-permissions.json')):
+ """Schema 2 requires an explicit administrator attestation of the gateway.
+ The marker binds the reviewed, restarted configuration to its exact bytes.
+ """
+ for path in (config,marker):
+  try:info=path.lstat()
+  except FileNotFoundError as error:raise ValueError('Staff gateway prerequisite missing') from error
+  if not stat.S_ISREG(info.st_mode) or info.st_uid!=0 or info.st_mode&0o022:raise ValueError('Staff gateway prerequisite is not root protected')
+ attestation=read_json(marker)
+ if attestation.get('format')!=1 or attestation.get('capability')!='staff-update-authorization-v1' or attestation.get('config_sha256')!=hashlib.sha256(config.read_bytes()).hexdigest():raise ValueError('Staff gateway prerequisite missing or changed')

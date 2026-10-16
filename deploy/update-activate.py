@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Fixed root activation job. It never runs release content as root."""
-import fcntl, json, os, pathlib, pwd, shutil, subprocess, tempfile, time, urllib.request, uuid
+import fcntl, json, os, pathlib, pwd, shutil, subprocess, sqlite3, tempfile, time, urllib.error, urllib.request, uuid
 from html.parser import HTMLParser
-from updates_common import VERSION, MAX_BUNDLE, atomic_json, read_json, verify, extract, safe_copy, check_bundle, check_existing
+from updates_common import VERSION, MAX_BUNDLE, atomic_json, read_json, verify, extract, safe_copy, check_bundle, check_existing, require_staff_gateway
 
 ROOT=pathlib.Path('/var/lib/library-updater');STATE=ROOT/'state'
 RELEASES=pathlib.Path('/opt/home-library/releases');CURRENT=pathlib.Path('/opt/home-library/current')
@@ -28,7 +28,12 @@ def ready(version,timeout=180,port=8080):
    with CLIENT.open(f'http://127.0.0.1:{port}/api/version',timeout=4) as r:v=json.load(r)
    with CLIENT.open(f'http://127.0.0.1:{port}/healthz',timeout=4) as r:h=json.load(r)
    with CLIENT.open(f'http://127.0.0.1:{port}/',timeout=4) as r:page=r.read(1<<20)
-   with CLIENT.open(f'http://127.0.0.1:{port}/api/books',timeout=4) as r:json.load(r)
+   try:
+    with CLIENT.open(f'http://127.0.0.1:{port}/api/member/books',timeout=4) as r:json.load(r)
+   except urllib.error.HTTPError as error:
+    if error.code!=404:raise
+    # Legacy schema 1 releases have no anonymous member endpoint.
+    with CLIENT.open(f'http://127.0.0.1:{port}/api/books',timeout=4) as r:json.load(r)
    with CLIENT.open(f'http://127.0.0.1:{port}/settings/',timeout=4) as r:settings=r.read(1<<20)
    parser=PageVersion();parser.feed(page.decode('utf-8'))
    current_pages=(version=='v0.1.0' or parser.version==version)
@@ -40,6 +45,16 @@ def ready(version,timeout=180,port=8080):
 def recover(journal):
  previous=pathlib.Path(journal['previous'])
  if previous.parent!=RELEASES or not VERSION.fullmatch(previous.name) or not previous.is_dir():raise ValueError('Invalid recovery release')
+ # An older binary must never reopen a database migrated to staff permissions.
+ schema=1
+ database=DATA/'library.sqlite'
+ if database.exists():
+  with sqlite3.connect(database.as_uri()+'?mode=ro',uri=True) as db:schema=db.execute('PRAGMA user_version').fetchone()[0]
+ previous_schema=read_json(previous/'RELEASE.json').get('schema',1)
+ if schema>previous_schema:
+  atomic_json(STATE/'maintenance.json',{'job':journal['job']})
+  atomic_json(STATE/'status.json',{**journal,'phase':'needs_attention','message':'Database migration prevents automatic rollback. Administrator recovery is required; writes remain paused.'})
+  raise RuntimeError('Previous release cannot open migrated database')
  atomic_json(STATE/'maintenance.json',{'job':journal['job']})
  atomic_json(STATE/'status.json',{**journal,'phase':'recovering','message':'Restoring the previous application release.'})
  system('stop','home-library.service');switch(previous);system('start','home-library.service')
@@ -73,11 +88,16 @@ def activate():
    for name,limit in [('manifest.json',16<<20),('manifest.sig',1024),('bundle.tar.gz',MAX_BUNDLE)]:safe_copy(source/name,secure/name,limit)
    manifest=verify(secure/'manifest.json',secure/'manifest.sig',KEY,VERIFIER)
    if manifest['version']!=version:raise ValueError('Version mismatch')
+   if manifest['schema']>=2:require_staff_gateway()
+   database=DATA/'library.sqlite'
+   if database.exists():
+    with sqlite3.connect(database.as_uri()+'?mode=ro',uri=True) as db:current_schema=db.execute('PRAGMA user_version').fetchone()[0]
+    if manifest['schema']<current_schema:raise ValueError('Release cannot open current database schema')
    check_bundle(secure/'bundle.tar.gz',manifest)
    if candidate.exists():check_existing(candidate,manifest)
    else:
     extract(secure/'bundle.tar.gz',manifest,candidate);created=True
-    atomic_json(candidate/'RELEASE.json',{'version':version,'commit':manifest['commit'],'runtime':manifest.get('runtime','legacy')})
+    atomic_json(candidate/'RELEASE.json',{'version':version,'commit':manifest['commit'],'runtime':manifest.get('runtime','legacy'),'schema':manifest['schema']})
   # Cache links are created by this fixed helper, never accepted from the archive.
   cache=pathlib.Path('/var/cache/home-library')/version
   cache.mkdir(mode=0o755,exist_ok=True)

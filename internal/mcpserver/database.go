@@ -11,6 +11,8 @@ import (
 
 // OpenReadOnly never creates or migrates a database. A read-only connection can
 // observe the running web app's WAL, so immutable=1 must not be used here.
+// The process has local operator access to this database, equivalent to staff
+// catalogue access. It is not an anonymous HTTP/member endpoint.
 func OpenReadOnly(path string) (*store.Store, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -37,7 +39,8 @@ func OpenReadOnly(path string) (*store.Store, error) {
 	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		return fail(err)
 	}
-	if version != 1 {
+	// Schema v2 adds staff tables without changing the catalogue read model.
+	if version != 1 && version != 2 {
 		return fail(fmt.Errorf("Unsupported library schema %d; run the matching web application first", version))
 	}
 	return &store.Store{DB: db}, nil

@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"flag"
+	"home-library/internal/auth"
 	"home-library/internal/covers"
 	"home-library/internal/httpapi"
+	"home-library/internal/membership"
 	"home-library/internal/metadata"
 	"home-library/internal/store"
+	"home-library/internal/wallet"
 	"log"
 	"net/http"
 	"os"
@@ -25,7 +28,24 @@ func main() {
 	web := flag.String("web", "web/dist", "prebuilt frontend directory")
 	backupDirectory := flag.String("backup-dir", "", "optional backup parent directory for read-only health checks")
 	maintenance := flag.String("maintenance-file", "", "read-only updater maintenance marker")
+	secureCookies := flag.Bool("secure-cookies", true, "require HTTPS for staff session cookies; disable only for local HTTP development")
+	walletPath := flag.String("wallet-config", os.Getenv("LIBRARY_WALLET_CONFIG"), "optional private Wallet issuer configuration file")
+	publicDefault := os.Getenv("LIBRARY_PUBLIC_URL")
+	if publicDefault == "" {
+		publicDefault = "https://library.local"
+	}
+	publicURL := flag.String("public-url", publicDefault, "private HTTPS origin used by the registration QR code")
 	flag.Parse()
+	if _, e := httpapi.RegistrationURL(*publicURL); e != nil {
+		log.Fatal(e)
+	}
+	walletService, e := wallet.NewFromFile(*walletPath)
+	if e != nil {
+		log.Fatal(e)
+	}
+	if e := walletService.ValidateLocations(*web, *data); e != nil {
+		log.Fatal(e)
+	}
 	if err := os.Setenv("LIBRARY_APP_VERSION", version); err != nil {
 		log.Fatal(err)
 	}
@@ -36,7 +56,7 @@ func main() {
 	}
 	// Validate the complete frontend before opening the listener. No compiler or
 	// household-derived HTML is needed at runtime.
-	for _, required := range []string{"index.html", "book-view/index.html", "settings/index.html", "scan/index.html"} {
+	for _, required := range []string{"index.html", "book-view/index.html", "settings/index.html", "scan/index.html", "join/index.html", "membership/index.html", "staff/login/index.html", "staff/members/index.html"} {
 		info, err := os.Stat(filepath.Join(*web, required))
 		if err != nil || !info.Mode().IsRegular() {
 			log.Fatalf("Missing prebuilt frontend %s; build the frontend or install a complete release", required)
@@ -51,7 +71,7 @@ func main() {
 	}
 	defer s.DB.Close()
 	coverService := covers.New(s, filepath.Join(*data, "covers"))
-	apiServer := &httpapi.Server{Lifecycle: ctx, Store: s, Metadata: metadata.NewWithCache(filepath.Join(*data, "metadata")), Web: *web, BackupDirectory: *backupDirectory, Covers: coverService, Version: version, Commit: commit, MaintenancePath: *maintenance}
+	apiServer := &httpapi.Server{Access: auth.New(s.DB), Membership: membership.New(s.DB), Wallet: walletService, PublicURL: *publicURL, SecureCookies: *secureCookies, Lifecycle: ctx, Store: s, Metadata: metadata.NewWithCache(filepath.Join(*data, "metadata")), Web: *web, BackupDirectory: *backupDirectory, Covers: coverService, Version: version, Commit: commit, MaintenancePath: *maintenance}
 	srv := &http.Server{Addr: *addr, Handler: apiServer.Handler(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	go func() {
 		<-ctx.Done()

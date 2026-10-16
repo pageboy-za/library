@@ -29,7 +29,7 @@ func TestPrebuiltRuntimeNewBookAndEdit(t *testing.T) {
 		}
 	}
 	server := &Server{Store: db, Web: web}
-	handler := server.Handler()
+	handler := server.testHandler(t)
 	call := func(method, path, body string, status int) *httptest.ResponseRecorder {
 		t.Helper()
 		req := httptest.NewRequest(method, "http://localhost:8080"+path, strings.NewReader(body))
@@ -88,7 +88,7 @@ func TestSvelteKitStaticRoutesAndCache(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	handler := (&Server{Store: db, Web: web}).Handler()
+	handler := (&Server{Store: db, Web: web}).testHandler(t)
 	for _, test := range []struct {
 		method, path string
 		status       int

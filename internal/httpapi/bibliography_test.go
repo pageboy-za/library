@@ -24,7 +24,7 @@ func TestBibliographyAndSubjectHTTPContract(t *testing.T) {
 	if _, err = s.SaveDiscovery(ctx, b.ID, store.Discovery{Subjects: []string{"Science"}, Notes: "Never public"}); err != nil {
 		t.Fatal(err)
 	}
-	handler := (&Server{Store: s}).Handler()
+	handler := (&Server{Store: s}).testHandler(t)
 	call := func(method, path, body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, "http://localhost:8080"+path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
@@ -76,7 +76,7 @@ func TestMetadataBackfillHTTPIsStrictAndRetrySafe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler := (&Server{Store: s}).Handler()
+	handler := (&Server{Store: s}).testHandler(t)
 	call := func(body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "http://localhost:8080/api/metadata/backfill", strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")

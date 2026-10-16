@@ -1,7 +1,6 @@
 <script lang="ts">
-import Discovery from '../../components/library/Discovery.svelte';
-import ClientOnly from '../../components/library/ClientOnly.svelte';
-import PageHeading from '../../components/library/PageHeading.svelte';
+import {onMount} from 'svelte';
+import {goto} from '$app/navigation';
+onMount(()=>{void goto('/staff/discover/'+location.search,{replaceState:true});});
 </script>
-<PageHeading title="Explore your shelves" description="Find books connected to the ideas you want to explore."/>
-<ClientOnly><Discovery/></ClientOnly>
+<h1>Staff area</h1><p>Opening the staff area…</p><a href="/staff/discover/">Continue to staff area</a>

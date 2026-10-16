@@ -8,7 +8,7 @@ a=p.parse_args()
 assert re.fullmatch(r'v\d+\.\d+\.\d+',a.version)
 root=pathlib.Path(a.root).resolve();out=pathlib.Path(a.out).resolve();out.mkdir(parents=True,exist_ok=True)
 assert not out.is_relative_to(root)
-required=['bin/library','bin/library-backup','web/index.html','web/book-view/index.html','web/settings/index.html','web/scan/index.html']
+required=['bin/library','bin/library-backup','bin/library-account','web/index.html','web/book-view/index.html','web/settings/index.html','web/scan/index.html','web/join/index.html','web/membership/index.html','web/staff/login/index.html','web/staff/members/index.html']
 for n in required: assert (root/n).is_file(),n
 files=[]
 with tarfile.open(out/'bundle.tar.gz','w:gz',dereference=False) as t:
@@ -25,6 +25,6 @@ with tarfile.open(out/'bundle.tar.gz','w:gz',dereference=False) as t:
   elif path.is_dir():continue
   else:raise ValueError('Unsupported file type')
   t.add(path,arcname=relative,recursive=False)
-manifest=dict(format=1,runtime='static-v1',version=a.version,commit=a.commit,arch='linux-arm64',schema=1,rollback_compatible=True,bundle_sha256=hashlib.sha256((out/'bundle.tar.gz').read_bytes()).hexdigest(),unpacked_size=sum(f.get('size',0) for f in files),files=files)
+manifest=dict(format=1,runtime='static-v1',version=a.version,commit=a.commit,arch='linux-arm64',schema=2,rollback_compatible=False,bundle_sha256=hashlib.sha256((out/'bundle.tar.gz').read_bytes()).hexdigest(),unpacked_size=sum(f.get('size',0) for f in files),files=files)
 (out/'manifest.json').write_text(json.dumps(manifest,sort_keys=True,separators=(',',':'))+'\n')
 print('Prepared',a.version,'with',len(files),'runtime files.')

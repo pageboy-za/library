@@ -1,4 +1,5 @@
 <script lang="ts">
+import {authenticatedFetch} from '../../lib/auth';
 import {onMount} from 'svelte';
 import {api, type Book, type Copy} from '../../lib/api';
 import BookFacts from './BookFacts.svelte';
@@ -173,7 +174,7 @@ function chooseBorrower(person:Borrower) {
 
 // Keep the HTTP status so a rejected request can be distinguished from a lost response.
 async function post(url:string, body:Record<string,unknown>) {
-  const response=await fetch(url,{
+  const response=await authenticatedFetch(url,{
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
   });
   const result=await response.json().catch(()=>null);
@@ -276,7 +277,7 @@ function returnBook() {
     {#if variant==='kiosk'}
       {#if book.cover_url}<img class="selected-thumb" src={book.cover_url} alt=""/>{:else}<span class="selected-thumb no-thumb" aria-hidden="true"><span>{book.title}</span><small>{book.authors[0]}</small></span>{/if}
       <div class="current-book">
-        <a class="book-heading" href={`/books/${book.id}/`}><strong>{book.title}</strong></a>
+        <a class="book-heading" href={`/staff/books/${book.id}/`}><strong>{book.title}</strong></a>
         {#if book.subtitle}<span>{book.subtitle}</span>{/if}
         <span>{book.authors.join(', ')||'Author not recorded'}</span>
         <BookFacts {book}/>

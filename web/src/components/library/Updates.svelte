@@ -1,10 +1,11 @@
 <script lang="ts">
+import {api} from '../../lib/api';
 import {onMount} from 'svelte';
 import {canInstallRelease,rollbackVersion,type UpdateStatus as Status} from '../../lib/updateReleases';
 let status:Status={installed:'Checking…'};let releases:{version:string;notes:string}[]=[];let error='';let statusError='';let busy=false;let requestKey='';
 const labels:Record<string,string>={downloading:'Downloading the release…',verifying:'Verifying the release…',preparing:'Checking the new application…',backing_up:'Backing up your library…',restarting:'Starting the new version…',recovering:'Restoring the previous version…',ready:'Your library is ready.',recovered:'The previous version is running.',failed:'The update could not be installed.',needs_attention:'Update recovery needs attention.'};
 $: running=['downloading','verifying','preparing','backing_up','restarting','recovering'].includes(status.phase||'');
-async function call<T>(path:string,body?:unknown):Promise<T>{const r=await fetch(`/api/updates/${path}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});const v=await r.json();if(!r.ok)throw new Error(v.error||'Could not check updates');return v;}
+async function call<T>(path:string,body?:unknown):Promise<T>{return api<T>(`/api/updates/${path}`,body);}
 async function refresh(){try{status=await call<Status>('status');statusError='';}catch{statusError='Update status is temporarily unavailable. This page will keep checking.';}}
 async function check(){busy=true;error='';try{await refresh();releases=(await call<{releases:{version:string;notes:string}[]}>('releases')).releases;}catch(e){error=(e as Error).message;}finally{busy=false;}}
 async function install(version:string){if(!canInstallRelease(version,status))return;busy=true;error='';if(!requestKey)requestKey=crypto.randomUUID();try{status=await call<Status>('install',{version,request_key:requestKey});requestKey='';}catch(e){error=(e as Error).message;}finally{busy=false;}}

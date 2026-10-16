@@ -1,6 +1,2 @@
-<script lang="ts">
-import LiveKiosk from '../components/library/LiveKiosk.svelte';
-import ClientOnly from '../components/library/ClientOnly.svelte';
-</script>
-<svelte:head><title>Your library</title></svelte:head>
-<ClientOnly><LiveKiosk/></ClientOnly>
+<script lang="ts">import MemberCatalogue from '../components/library/MemberCatalogue.svelte';import ClientOnly from '../components/library/ClientOnly.svelte';</script>
+<ClientOnly><MemberCatalogue/></ClientOnly>

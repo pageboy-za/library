@@ -4,7 +4,7 @@ import {api,type Book} from '../../lib/api';
 export let book:Book;export let disabled=false;export let busyChanged:(value:boolean)=>void=()=>{};
 let confirming=false;let busy=false;let error='';let key='';let cancel:HTMLButtonElement;
 async function open(){key=crypto.randomUUID();confirming=true;error='';await tick();cancel?.focus();}
-async function remove(){if(busy||disabled)return;busy=true;busyChanged(true);error='';try{await api(`/api/books/${book.id}/delete`,{revision:book.revision,expected_copy_count:book.total_copy_count,request_key:key});window.location.href='/settings/?deleted=1';}catch(e){error=(e as Error).message;}finally{busy=false;busyChanged(false);}}
+async function remove(){if(busy||disabled)return;busy=true;busyChanged(true);error='';try{await api(`/api/books/${book.id}/delete`,{revision:book.revision,expected_copy_count:book.total_copy_count,request_key:key});window.location.href='/staff/settings/?deleted=1';}catch(e){error=(e as Error).message;}finally{busy=false;busyChanged(false);}}
 </script>
 <section class="delete-book" aria-label="Delete book">
 {#if !confirming}<button class="library-button secondary" disabled={disabled||book.copies.some(copy=>copy.out)} onclick={open}>Delete book</button>{#if book.copies.some(copy=>copy.out)}<p>Return all copies on loan before deleting this book.</p>{/if}

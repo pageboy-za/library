@@ -1,0 +1,1 @@
+export type MemberBook={id:number;isbn:string;title:string;subtitle:string;authors:string[];publisher:string;publication_date:string;cover_url:string;cover_thumbnail_url?:string;thumbnail_url?:string;first_published_year?:number|null;source_url?:string;description?:string;subjects?:string[];count:number;available:number};

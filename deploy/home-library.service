@@ -9,6 +9,7 @@ Type=simple
 User=home-library
 Group=home-library
 WorkingDirectory=/var/lib/home-library/app
+EnvironmentFile=-/etc/home-library-wallet/runtime.env
 
 # Optional: append -backup-dir with the chosen external backup parent directory.
 # This displays read-only health; it does not schedule or create backups.

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"home-library/internal/auth"
+	"home-library/internal/membership"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,7 +77,7 @@ func TestLegacyCoreUpgradePreservesDataAndRestarts(t *testing.T) {
 func TestNewerVersionRefusalDoesNotModifyDatabase(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "future.sqlite")
 	db := legacyFixture(t, path)
-	mustExecMigration(t, db, "PRAGMA user_version=2")
+	mustExecMigration(t, db, "PRAGMA user_version=3")
 	db.Close()
 	before, e := os.ReadFile(path)
 	if e != nil {
@@ -224,5 +226,143 @@ func TestDeclaredConstraintsValidatedBeforeMutation(t *testing.T) {
 				t.Fatal("Constraint refusal changed database bytes")
 			}
 		})
+	}
+}
+
+func TestStaffMigrationPreservesCatalogueAndSessionsAcrossRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "staff-upgrade.sqlite")
+	db := legacyFixture(t, path)
+	mustExecMigration(t, db, `INSERT INTO books(id,title,authors) VALUES(42,'Existing catalogue','[]')`)
+	db.Close()
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	access := auth.New(s.DB)
+	user, err := access.Bootstrap(ctx, "admin", "Library administrator", "correct horse battery staple")
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := access.CreateSession(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.DB.Close()
+	s, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.DB.Close()
+	if book, err := s.Book(ctx, 42); err != nil || book.Title != "Existing catalogue" {
+		t.Fatalf("catalogue changed: %+v %v", book, err)
+	}
+	if restored, err := auth.New(s.DB).Session(ctx, session.Token); err != nil || restored.User.ID != user.ID {
+		t.Fatalf("staff session lost on restart: %+v %v", restored, err)
+	}
+	var version int
+	if err = s.DB.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 2 {
+		t.Fatalf("schema version: %d %v", version, err)
+	}
+}
+
+func TestIncompatibleStaffTableRollsBackMigrationVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bad-staff.sqlite")
+	db := legacyFixture(t, path)
+	mustExecMigration(t, db, "CREATE TABLE staff_users(id INTEGER PRIMARY KEY,username TEXT)")
+	mustExecMigration(t, db, "INSERT INTO staff_users VALUES(1,'preserve')")
+	db.Close()
+	if s, err := Open(path); err == nil {
+		s.DB.Close()
+		t.Fatal("incompatible staff table accepted")
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var version, count int
+	if err = db.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 1 {
+		t.Fatalf("failed migration changed version: %d %v", version, err)
+	}
+	if err = db.QueryRow("SELECT count(*) FROM sqlite_schema WHERE name='staff_sessions'").Scan(&count); err != nil || count != 0 {
+		t.Fatalf("failed migration left sessions table: %d %v", count, err)
+	}
+	var username string
+	if err = db.QueryRow("SELECT username FROM staff_users WHERE id=1").Scan(&username); err != nil || username != "preserve" {
+		t.Fatalf("incompatible extension changed: %s %v", username, err)
+	}
+}
+
+func TestMembershipAdditiveUpgradePreservesStaffAndCatalogue(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "membership-upgrade.sqlite")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := auth.New(s.DB).Bootstrap(ctx, "admin", "Administrator", "correct horse battery staple")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.DB.Exec("DROP TABLE member_registrations"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.DB.Exec(`INSERT INTO borrowers(id,name,notes) VALUES(91,'Existing borrower','Keep private')`); err != nil {
+		t.Fatal(err)
+	}
+	s.DB.Close()
+	s, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.DB.Close()
+	var version int
+	if err = s.DB.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 2 {
+		t.Fatalf("additive membership migration changed security schema: %d %v", version, err)
+	}
+	if user, err := auth.New(s.DB).Authenticate(ctx, "admin", "correct horse battery staple"); err != nil || user.ID != account.ID {
+		t.Fatalf("staff account changed: %+v %v", user, err)
+	}
+	var notes string
+	if err = s.DB.QueryRow("SELECT notes FROM borrowers WHERE id=91").Scan(&notes); err != nil || notes != "Keep private" {
+		t.Fatalf("borrower changed: %s %v", notes, err)
+	}
+	registration, _, err := membership.New(s.DB).Register(ctx, "New member", "new@example.org", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved, err := membership.New(s.DB).Approve(ctx, registration.ID, account.ID)
+	if err != nil || approved.BorrowerID == nil || *approved.BorrowerID == 91 {
+		t.Fatalf("membership approval: %+v %v", approved, err)
+	}
+}
+
+func TestIncompatibleMembershipTableRefusesWithoutChangingExistingData(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bad-membership.sqlite")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.DB.Exec(`DROP TABLE member_registrations; CREATE TABLE member_registrations(id INTEGER PRIMARY KEY,name TEXT,status TEXT);INSERT INTO member_registrations VALUES(1,'Preserve application','pending')`); err != nil {
+		t.Fatal(err)
+	}
+	s.DB.Close()
+	if opened, err := Open(path); err == nil {
+		opened.DB.Close()
+		t.Fatal("incompatible membership table accepted")
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var name string
+	if err = db.QueryRow("SELECT name FROM member_registrations WHERE id=1").Scan(&name); err != nil || name != "Preserve application" {
+		t.Fatalf("existing application changed: %s %v", name, err)
+	}
+	var indexCount int
+	if err = db.QueryRow("SELECT count(*) FROM sqlite_schema WHERE name='member_registrations_status'").Scan(&indexCount); err != nil || indexCount != 0 {
+		t.Fatalf("failed migration committed its derived index: %d %v", indexCount, err)
 	}
 }

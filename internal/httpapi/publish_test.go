@@ -78,7 +78,7 @@ func TestSavesAndReadsDoNotWaitForStaticPublication(t *testing.T) {
 			lifetime, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			server := &Server{Store: db, Pages: pages, Lifecycle: lifetime}
-			h := server.Handler()
+			h := server.testHandler(t)
 			t.Cleanup(func() { cancel(); waitBackground(t, server) })
 			call := func(method, path, body string) *httptest.ResponseRecorder {
 				r := httptest.NewRequest(method, "http://localhost:8080"+path, strings.NewReader(body))
@@ -196,7 +196,7 @@ func TestSaveDoesNotWaitForCoverLookupAndShutdownCancelsIt(t *testing.T) {
 	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	done := make(chan struct{})
-	go func() { server.Handler().ServeHTTP(w, r); close(done) }()
+	go func() { server.testHandler(t).ServeHTTP(w, r); close(done) }()
 	select {
 	case <-done:
 	case <-time.After(time.Second):

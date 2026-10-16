@@ -27,7 +27,7 @@ func TestDeletionVisibilitySurvivesFailedStaticBuild(t *testing.T) {
 	os.WriteFile(filepath.Join(pages.directory, "index.html"), []byte("<h1>Your library</h1><div>Live catalogue shell</div>"), 0600)
 	os.MkdirAll(filepath.Join(pages.directory, "settings"), 0700)
 	os.WriteFile(filepath.Join(pages.directory, "settings", "index.html"), []byte("Settings recovery shell"), 0600)
-	h := (&Server{Store: s, Pages: pages}).Handler()
+	h := (&Server{Store: s, Pages: pages}).testHandler(t)
 	call := func(method, path, body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, "http://localhost:8080"+path, strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")

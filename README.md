@@ -2,7 +2,7 @@
 
 A local Go + SQLite application with a prebuilt SvelteKit interface. Raspberry Pi OS 64-bit remains the deployment target.
 
-See [SvelteKit migration and validation](SVELTEKIT_MIGRATION.md) for the frontend structure and Raspberry Pi checks.
+See [SvelteKit migration and validation](SVELTEKIT_MIGRATION.md) for the frontend structure and Raspberry Pi checks, [staff access and member registration](STAFF_ACCESS_MIGRATION.md) for permissions and approval, and [Wallet setup](WALLET_SETUP.md) for optional Apple/Google issuer configuration.
 
 ## Run the first slice
 
@@ -14,7 +14,9 @@ npm ci
 npm run build
 cd ..
 go build -o bin/library ./cmd/library
-./bin/library
+go build -o bin/library-account ./cmd/library-account
+# Disposable localhost development only; use HTTPS and secure cookies on the Pi.
+./bin/library -secure-cookies=false -public-url http://127.0.0.1:8080
 ```
 
 Open http://127.0.0.1:8080. The executable serves the prebuilt interface and current catalogue data. Node is used only to build the frontend; adding or editing a book does not rebuild pages. Run from the repository root (`-web` defaults to `web/dist`) or pass `-web` and `-data` with absolute paths. Stop with Ctrl+C.
@@ -22,6 +24,14 @@ Open http://127.0.0.1:8080. The executable serves the prebuilt interface and cur
 Build outputs and household data are excluded from the repository. Install Go normally before building.
 
 ## Try it
+
+After the first startup initializes SQLite, bootstrap your first administrator
+with `library-account` using the [private stdin procedure](STAFF_ACCESS_MIGRATION.md).
+Sign in at `/staff/login/` to use the tools below. Visitors can browse without a
+staff account and request membership at `/join/`. Librarians approve requests at
+`/staff/members/`; approved members can download a QR card, plus Wallet cards when
+the operator has configured an issuer. Telephone numbers are optional. No email
+verification or approval notification is sent.
 
 1. Open Shelves and add a bookcase and shelf. Rename locations as needed; removal is blocked while current or archived copies reference them.
 2. Open Add a book. Focus the barcode field and scan with an Enter suffix, or type an ISBN and press Enter.
@@ -37,6 +47,9 @@ Books without ISBNs can be entered manually. Do not concatenate the price supple
 - `cmd/library`: local Go server startup/shutdown.
 - `internal/httpapi`: same-origin API and static serving.
 - `internal/store`: SQLite catalogue, inventory and discovery metadata.
+- `internal/auth`: individual staff accounts, sessions and permissions.
+- `internal/membership`: private registrations, approval and member card identities.
+- `internal/wallet`: optional Apple and Google cards signed locally in Go.
 - `internal/covers`: locally cached cover downloads, selection and validated uploads.
 - `internal/catalogue`: shared explained discovery service.
 - `internal/mcpserver` and `cmd/library-mcp`: read-only local stdio MCP tools.

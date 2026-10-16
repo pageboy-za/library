@@ -39,6 +39,8 @@ id_ed25519*
 .aws/
 .codex/
 credentials.json
+wallet-config*.json
+google-service-account*.json
 service-account*.json
 secrets/
 

@@ -1,7 +1,6 @@
 <script lang="ts">
-import Borrowers from '../../components/library/Borrowers.svelte';
-import ClientOnly from '../../components/library/ClientOnly.svelte';
-import PageHeading from '../../components/library/PageHeading.svelte';
+import {onMount} from 'svelte';
+import {goto} from '$app/navigation';
+onMount(()=>{void goto('/staff/borrowers/'+location.search,{replaceState:true});});
 </script>
-<PageHeading title="Your readers" description="Keep track of the people borrowing your books."/>
-<ClientOnly><Borrowers/></ClientOnly>
+<h1>Staff area</h1><p>Opening the staff area…</p><a href="/staff/borrowers/">Continue to staff area</a>

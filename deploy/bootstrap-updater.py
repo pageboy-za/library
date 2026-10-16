@@ -55,7 +55,7 @@ try:
   args+=['-data','/var/lib/home-library/data','-out',str(backup/'snapshot')] if action=='create' else ['-backup',str(backup/'snapshot')]
   subprocess.run(args,check=True)
  pathlib.Path('/opt/home-library/current').symlink_to(candidate)
- pathlib.Path('/etc/systemd/system/home-library.service.d/updates.conf').write_text('[Service]\nExecStart=\nExecStart=/usr/local/libexec/home-library-updater/start-managed-library.sh\nReadWritePaths=/var/cache/home-library\nTimeoutStopSec=200\n')
+ pathlib.Path('/etc/systemd/system/home-library.service.d/updates.conf').write_text('[Service]\nEnvironmentFile=-/etc/home-library-wallet/runtime.env\nExecStart=\nExecStart=/usr/local/libexec/home-library-updater/start-managed-library.sh\nReadWritePaths=/var/cache/home-library\nTimeoutStopSec=200\n')
  for name in ['home-library-update-api.service','home-library-update.service','home-library-update.path']:
   shutil.copyfile(stage/name,pathlib.Path('/etc/systemd/system')/name)
  shutil.copyfile(stage/'Caddyfile.lan.example','/etc/home-library-gateway/Caddyfile')

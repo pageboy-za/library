@@ -180,7 +180,7 @@ func exported(ctx context.Context, db *sql.DB) (Export, error) {
 	}
 	for _, name := range names {
 		// Search documents and SQLite FTS shadow tables are rebuildable indexes.
-		if name == "mutation_requests" || name == "book_search" || strings.HasPrefix(name, "book_search_") {
+		if name == "member_registrations" || name == "staff_users" || name == "staff_sessions" || name == "mutation_requests" || name == "book_search" || strings.HasPrefix(name, "book_search_") {
 			continue
 		}
 		quoted := `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
@@ -416,6 +416,21 @@ func Restore(ctx context.Context, source, dest string) (err error) {
 		}
 		if actual.SHA256 != f.SHA256 || actual.Bytes != f.Bytes {
 			return fmt.Errorf("Backup changed during restore: %s", f.Path)
+		}
+	}
+	// Preserve staff accounts, but never resurrect browser sessions from a backup.
+	if manifest.SchemaVersion >= 2 {
+		db, e := sql.Open("sqlite", filepath.Join(dest, "library.sqlite"))
+		if e != nil {
+			return e
+		}
+		_, e = db.ExecContext(ctx, "DELETE FROM staff_sessions")
+		closeErr := db.Close()
+		if e != nil {
+			return e
+		}
+		if closeErr != nil {
+			return closeErr
 		}
 	}
 	return nil

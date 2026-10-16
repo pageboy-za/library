@@ -2,7 +2,7 @@
 """Adversarial release tests with disposable keys and files, no real catalogue."""
 import copy, hashlib, http.client, io, json, os, pathlib, socket, subprocess, sys, tarfile, tempfile, threading, types, uuid
 from importlib.machinery import SourceFileLoader
-from updates_common import verify, extract
+from updates_common import verify, extract, require_staff_gateway
 
 verifier=os.environ.get('RELEASE_VERIFY_BIN','./bin/library-release')
 with tempfile.TemporaryDirectory(prefix='library-release-security-') as directory:
@@ -28,23 +28,35 @@ with tempfile.TemporaryDirectory(prefix='library-release-security-') as director
  assert (root/'valid/bin/library').read_bytes()==b'fixture'
  # Prebuilt releases require all application entry points and no Node dependencies.
  legacy_bodies=bodies.copy()
- bodies={n:b'fixture' for n in ['bin/library','bin/library-backup','web/index.html','web/book-view/index.html','web/settings/index.html','web/scan/index.html']}
- static={**base,'runtime':'static-v1','unpacked_size':sum(map(len,bodies.values())),'files':[dict(path=n,type='file',sha256=hashlib.sha256(b).hexdigest(),size=len(b),mode=0o644) for n,b in bodies.items()]}
+ bodies={n:b'fixture' for n in ['bin/library','bin/library-backup','bin/library-account','web/index.html','web/book-view/index.html','web/settings/index.html','web/scan/index.html','web/join/index.html','web/membership/index.html','web/staff/login/index.html','web/staff/members/index.html']}
+ static={**base,'schema':2,'rollback_compatible':False,'runtime':'static-v1','unpacked_size':sum(map(len,bodies.values())),'files':[dict(path=n,type='file',sha256=hashlib.sha256(b).hexdigest(),size=len(b),mode=0o644) for n,b in bodies.items()]}
  write_bundle();sign(copy.deepcopy(static));valid_static=verify(manifest,signature,public,verifier);extract(bundle,valid_static,root/'static')
  assert (root/'static/web/book-view/index.html').read_bytes()==b'fixture'
+ # Every member/staff entry point is mandatory for schema 2. Old static
+ # schema 1 bundles remain accepted without these newer pages or account CLI.
+ membership_pages=['web/join/index.html','web/membership/index.html','web/staff/login/index.html','web/staff/members/index.html']
+ for missing in membership_pages+['bin/library-account']:
+  incomplete=copy.deepcopy(static)
+  incomplete['files']=[f for f in incomplete['files'] if f['path']!=missing]
+  incomplete['unpacked_size']=sum(f['size'] for f in incomplete['files'])
+  sign(incomplete);rejected(lambda:verify(manifest,signature,public,verifier))
+ old_static=copy.deepcopy(static);old_static.update(schema=1,rollback_compatible=True)
+ old_static['files']=[f for f in old_static['files'] if f['path'] not in membership_pages+['bin/library-account']]
+ old_static['unpacked_size']=sum(f['size'] for f in old_static['files'])
+ sign(old_static);verify(manifest,signature,public,verifier)
  # Exercise the publisher too: its output must satisfy the installed verifier.
  published=root/'published'
  subprocess.run([sys.executable,str(pathlib.Path(__file__).with_name('build-release.py')),'--root',str(root/'static'),'--out',str(published),'--version','v9.9.9','--commit','a'*40],check=True)
  subprocess.run([verifier,'-action','sign','-key',str(private),'-manifest',str(published/'manifest.json'),'-signature',str(published/'manifest.sig')],check=True)
  packaged=verify(published/'manifest.json',published/'manifest.sig',public,verifier)
- assert packaged['runtime']=='static-v1'
+ assert packaged['runtime']=='static-v1' and packaged['schema']==2 and packaged['rollback_compatible'] is False
  extract(published/'bundle.tar.gz',packaged,root/'published-extracted')
  for change in [lambda m:m.update(runtime='unknown'),lambda m:m.update(runtime=None),lambda m:m['files'].pop(),lambda m:m['files'].append(dict(path='runtime/bin/node',type='file',sha256='0'*64,size=0,mode=0o755)),lambda m:m['files'].append(dict(path='web/.svelte-kit/output/server/index.js',type='file',sha256='0'*64,size=0,mode=0o644))]:
   m=copy.deepcopy(static);change(m);sign(m);rejected(lambda:verify(manifest,signature,public,verifier))
  bodies=legacy_bodies;write_bundle();sign(copy.deepcopy(base))
  # Altered publisher bytes must fail even when the tar is otherwise valid.
  manifest.write_bytes(manifest.read_bytes()+b' ');rejected(lambda:verify(manifest,signature,public,verifier))
- for change in [lambda m:m.update(arch='linux-amd64'),lambda m:m.update(schema=2),lambda m:m.update(rollback_compatible=False),lambda m:m['files'].append(dict(path='../../escape',type='file',size=0,sha256='0'*64,mode=0o644)),lambda m:m['files'].append(dict(path='web/escape',type='symlink',target='../../etc/passwd'))]:
+ for change in [lambda m:m.update(arch='linux-amd64'),lambda m:m.update(schema=3),lambda m:m.update(rollback_compatible=False),lambda m:m['files'].append(dict(path='../../escape',type='file',size=0,sha256='0'*64,mode=0o644)),lambda m:m['files'].append(dict(path='web/escape',type='symlink',target='../../etc/passwd'))]:
   m=copy.deepcopy(base);change(m);sign(m);rejected(lambda:verify(manifest,signature,public,verifier))
  # A signed bundle hash cannot excuse extra archive entries or hard links.
  for name,kind in [('unexpected',tarfile.REGTYPE),('bin/library',tarfile.REGTYPE),('bin/library',tarfile.LNKTYPE)]:
@@ -53,6 +65,22 @@ with tempfile.TemporaryDirectory(prefix='library-release-security-') as director
   assert not (root/'bad').exists()
  write_bundle();m=copy.deepcopy(base);m['files'][0]['sha256']='0'*64;sign(m);m=verify(manifest,signature,public,verifier);rejected(lambda:extract(bundle,m,root/'bad'))
  assert not (root/'escape').exists()
+ # Schema 2 gateway permission attestation is required and bound to config bytes.
+ from unittest.mock import patch
+ config=root/'Caddyfile';marker=root/'staff-permissions.json'
+ rejected(lambda:require_staff_gateway(config,marker))
+ config.write_text('disposable reviewed gateway');config.chmod(0o644)
+ marker.write_text(json.dumps(dict(format=1,capability='staff-update-authorization-v1',config_sha256=hashlib.sha256(config.read_bytes()).hexdigest())));marker.chmod(0o644)
+ real_lstat=pathlib.Path.lstat
+ def fixture_root_stat(path):
+  info=real_lstat(path)
+  return types.SimpleNamespace(st_mode=info.st_mode,st_uid=0)
+ with patch.object(pathlib.Path,'lstat',fixture_root_stat):
+  require_staff_gateway(config,marker)
+  config.write_text('unreviewed drift')
+  rejected(lambda:require_staff_gateway(config,marker))
+  config.chmod(0o666)
+  rejected(lambda:require_staff_gateway(config,marker))
  # Recovery operates on protected version paths and never restores catalogue bytes.
  activation=SourceFileLoader('activation_test',str(pathlib.Path(__file__).with_name('update-activate.py'))).load_module()
  # API readiness alone must not accept fallback HTML from another release.
@@ -61,7 +89,7 @@ with tempfile.TemporaryDirectory(prefix='library-release-security-') as director
  def response(url,timeout=4):
   if url.endswith('/api/version'):return Response(b'{"version":"v9.9.9"}')
   if url.endswith('/healthz'):return Response(b'{"status":"ready"}')
-  if url.endswith('/api/books'):return Response(b'{"books":[]}')
+  if url.endswith('/api/member/books'):return Response(b'{"books":[]}')
   if url.endswith('/settings/'):return Response(b'Application updates')
   return Response(b'kiosk-search<meta name="library-app-version" content="v9.9.9">')
  activation.CLIENT=types.SimpleNamespace(open=response)
@@ -82,6 +110,18 @@ with tempfile.TemporaryDirectory(prefix='library-release-security-') as director
  assert activation.read_json(activation.STATE/'status.json')['phase']=='recovered'
  assert catalogue.read_bytes()==b'disposable persistent record'
  assert calls==[('stop','home-library.service'),('start','home-library.service')]
+ # Migration failures must never boot a pre-permissions release on schema 2.
+ activation.DATA=root/'data';activation.DATA.mkdir()
+ import sqlite3
+ with sqlite3.connect(activation.DATA/'library.sqlite') as db:db.execute('PRAGMA user_version=2')
+ calls.clear()
+ try:activation.recover(journal)
+ except RuntimeError:pass
+ else:raise AssertionError('Unsafe schema downgrade was permitted')
+ assert calls==[] and activation.read_json(activation.STATE/'status.json')['phase']=='needs_attention'
+ activation.atomic_json(previous/'RELEASE.json',{'schema':2})
+ activation.recover(journal)
+ assert activation.read_json(activation.STATE/'status.json')['phase']=='recovered'
  # A crash while saving the journal must leave the queued request recoverable.
  pending=activation.ROOT/'requests/ready.json'
  activation.atomic_json(pending,{'job':str(uuid.uuid4()),'version':'v2.0.0'})

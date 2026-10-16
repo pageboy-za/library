@@ -33,12 +33,14 @@ jobs:
           go test ./...
           go vet ./...
           python3 deploy/backfill-metadata-test.py
+          python3 deploy/deploy-staff-release-test.py
           cd web
           npm ci --no-audit --no-fund
           node --test src/lib/book-sort.test.mjs
+          npm test
           npm run check
           LIBRARY_APP_VERSION="$RELEASE_VERSION" npm run build
-          python3 ../deploy/check-page-version.py "$RELEASE_VERSION" dist index.html settings/index.html scan/index.html book-view/index.html
+          python3 ../deploy/check-page-version.py "$RELEASE_VERSION" dist index.html settings/index.html scan/index.html book-view/index.html join/index.html membership/index.html staff/login/index.html staff/members/index.html
       - name: Check portable source package
         run: ./deploy/package-test.sh
       - name: Check secrets and updater rejection cases
