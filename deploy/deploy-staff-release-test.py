@@ -5,8 +5,12 @@ module=importlib.machinery.SourceFileLoader('staff_deploy_test',str(pathlib.Path
 with tempfile.TemporaryDirectory() as directory:
  root=pathlib.Path(directory);(root/'covers').mkdir();(root/'covers/fixture').write_bytes(b'fixture cover')
  with sqlite3.connect(root/'library.sqlite') as db:
-  db.executescript("CREATE TABLE books(id INTEGER PRIMARY KEY,title TEXT,opaque BLOB);INSERT INTO books VALUES(1,'Fixture',X'0102');CREATE TABLE staff_sessions(token TEXT);INSERT INTO staff_sessions VALUES('private fixture token')")
+  db.executescript("CREATE TABLE books(id INTEGER PRIMARY KEY,title TEXT,opaque BLOB);INSERT INTO books VALUES(1,'Fixture',X'0102');CREATE TABLE cover_assets(local_path TEXT);INSERT INTO cover_assets VALUES('fixture');CREATE TABLE staff_sessions(token TEXT);INSERT INTO staff_sessions VALUES('private fixture token')")
  before=module.fingerprint(root)
+ (root/'covers/derived').mkdir();(root/'covers/derived/fixture-thumbnail.jpg').write_bytes(b'rebuildable thumbnail')
+ module.compare(root,before)
+ (root/'covers/derived/fixture-thumbnail.jpg').write_bytes(b'changed cache')
+ module.compare(root,before)
  with sqlite3.connect(root/'library.sqlite') as db:
   db.executescript("ALTER TABLE books ADD COLUMN new_column TEXT;CREATE TABLE member_registrations(id INTEGER);DELETE FROM staff_sessions")
  module.compare(root,before)
@@ -20,6 +24,18 @@ with tempfile.TemporaryDirectory() as directory:
  try:module.compare(root,before)
  except RuntimeError:pass
  else:raise AssertionError('changed cover accepted')
+ (root/'covers/fixture').unlink()
+ try:module.fingerprint(root)
+ except ValueError:pass
+ else:raise AssertionError('missing referenced cover accepted')
+ (root/'covers/fixture').symlink_to(root/'covers/derived/fixture-thumbnail.jpg')
+ try:module.fingerprint(root)
+ except ValueError:pass
+ else:raise AssertionError('referenced cover symlink accepted')
+ with sqlite3.connect(root/'library.sqlite') as db:db.execute("UPDATE cover_assets SET local_path='../outside'")
+ try:module.fingerprint(root)
+ except ValueError:pass
+ else:raise AssertionError('referenced cover traversal accepted')
  current=pathlib.Path(__file__).with_name('Caddyfile.lan.example').read_text()
  start=current.index('\n\t\t\t# Staff admin session');end=current.index('\n\t\t\treverse_proxy unix',start)
  legacy=current[:start]+current[end:]
@@ -35,4 +51,4 @@ with tempfile.TemporaryDirectory() as directory:
  assert "manifest['commit']!=args.commit" in source and "manifest['version']!=args.version" in source
  assert "proof.get('sha256')!=digest" in source
  assert "UnsetEnvironment=LIBRARY_WALLET_CONFIG LIBRARY_PUBLIC_URL" in source
- print('PASS: private canonical field/cover audit; additive migration compatibility; gateway preserves existing bytes; backup/proof before privileged changes; pinned release identity and disabled Wallet.')
+ print('PASS: referenced-original cover audit ignores derived caches; missing/unsafe originals rejected; private canonical fields; additive migration compatibility; gateway preserves existing bytes; backup/proof before privileged changes; pinned release identity and disabled Wallet.')

@@ -36,12 +36,22 @@ def fingerprint(data,columns=None):
    for row in db.execute('SELECT '+','.join(map(quote_identifier,fields))+' FROM '+quote_identifier(name)):
     values.append(json.dumps([{'blob':v.hex()} if isinstance(v,bytes) else v for v in row],separators=(',',':'),ensure_ascii=True))
    tables[name]={'rows':len(values),'sha256':hashlib.sha256('\n'.join(sorted(values)).encode()).hexdigest()}
+  # Snapshots intentionally contain referenced original assets, while live
+  # covers/ also has rebuildable thumbnails. Audit the same original set.
+  cover_names=sorted({row[0] for row in db.execute('SELECT local_path FROM cover_assets')})
  covers={}
  cover_root=data/'covers'
- if cover_root.exists():
-  for file in sorted(cover_root.rglob('*')):
-   if file.is_symlink():raise ValueError('Unexpected cover symlink')
-   if file.is_file():covers[file.relative_to(cover_root).as_posix()]=hashlib.sha256(file.read_bytes()).hexdigest()
+ for name in cover_names:
+  if not isinstance(name,str) or not name or '\\' in name:raise ValueError('Unsafe referenced cover path')
+  relative=pathlib.PurePosixPath(name)
+  if relative.is_absolute() or relative.as_posix()!=name or '..' in relative.parts or name=='.':raise ValueError('Unsafe referenced cover path')
+  current=cover_root
+  if current.is_symlink():raise ValueError('Unexpected cover directory symlink')
+  for part in relative.parts:
+   current=current/part
+   if current.is_symlink():raise ValueError('Unexpected referenced cover symlink')
+  if not current.is_file():raise ValueError('Referenced original cover is missing')
+  covers[name]=hashlib.sha256(current.read_bytes()).hexdigest()
  return {'columns':columns,'tables':tables,'covers':covers}
 
 def compare(data,baseline):
