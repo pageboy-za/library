@@ -32,7 +32,7 @@ required = ["go.mod", "go.sum", "internal/store/schema.sql", "cmd/library/main.g
             "deploy/build-pi.sh", "deploy/home-library.service", "PI_README.md"]
 roots = {"cmd": {".go"}, "internal": {".go", ".sql"},
          "web/src": {".astro", ".svelte", ".ts", ".js", ".css", ".svg", ".woff2"}}
-explicit = required + ["README.md", "LIBRARY_PLAN.md", "MULTIFORMAT_PLAN.md",
+explicit = required + ["LICENSE", "deploy/upgrade-runtime-updater.py", "README.md", "LIBRARY_PLAN.md", "MULTIFORMAT_PLAN.md",
     "BACKUP_README.md", "MCP_README.md", "RELEASE_README.md", "ER_DIAGRAM.md",
     "ER_DIAGRAM.mmd", "ER_DIAGRAM.png", "web/LUMOS.md", "web/LUMOS_LICENSE",
     "deploy/start-kiosk.sh", "deploy/home-library-kiosk.desktop",

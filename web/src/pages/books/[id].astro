@@ -6,8 +6,10 @@ import BookWorkspace from '../../components/library/BookWorkspace.svelte';
 import QuickScan from '../../components/library/QuickScan.svelte';
 import IsbnCopy from '../../components/library/IsbnCopy.astro';
 import {bookSnapshot,type StaticBook} from '../../lib/bookSnapshot';
+import {openLibraryUrl} from '../../lib/openLibrary';
 export function getStaticPaths(){return bookSnapshot().map(book=>({params:{id:String(book.id)},props:{book}}));}
 const {book}=Astro.props as {book:StaticBook};
+const openLibraryHref=openLibraryUrl(book);
 ---
 <Layout title={book.title} hideHeader={true} compact={true}>
 <article class="book-page" data-book-id={book.id} data-book-revision={book.revision}>
@@ -28,7 +30,7 @@ const {book}=Astro.props as {book:StaticBook};
         <div><dt>Published</dt><dd>{book.publication_date||'Not recorded'}</dd></div>
         <div class="book-page_isbn"><dt>ISBN</dt><dd>{book.isbn?<IsbnCopy isbn={book.isbn}/>: 'No ISBN'}</dd></div>
       </dl>
-      <div class="book-page_actions"><button type="button" data-edit-book={book.id} aria-expanded="false">Edit details</button></div>
+      <div class="book-page_actions"><button type="button" data-edit-book={book.id} aria-expanded="false">Edit details</button>{openLibraryHref&&<a href={openLibraryHref} target="_blank" rel="noreferrer">View on Open Library ↗</a>}</div>
     </header>
     <BookWorkspace bookId={book.id} client:load/>
     </div>
@@ -58,7 +60,7 @@ const {book}=Astro.props as {book:StaticBook};
   .book-page_authors {font-size:1.0625rem;color:var(--app-muted,var(--text-2));}
   .book-page_facts {display:grid;gap:.375rem;max-width:32rem;margin-top:.625rem;font-size:.875rem;div{display:grid;grid-template-columns:5.5rem minmax(0,1fr);align-content:start;gap:1rem;}dt{color:var(--app-muted,var(--text-2));font-size:.875rem;}dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}}
   .book-page_facts .book-page_isbn {align-items:center;}
-  .book-page_actions {display:flex;gap:1.25rem;button{min-height:2.75rem;padding:.5rem 0;background:transparent;border:0;font-size:.875rem;color:var(--app-muted,var(--text-2));text-decoration:underline;text-underline-offset:.2em;}}
+  .book-page_actions {display:flex;flex-wrap:wrap;gap:.25rem 1.25rem;button,a{display:inline-flex;align-items:center;min-height:2.75rem;padding:.5rem 0;background:transparent;border:0;font-size:.875rem;color:var(--app-muted,var(--text-2));text-decoration:underline;text-underline-offset:.2em;}}
   .book-page_secondary {display:grid;gap:1rem;padding-top:1.25rem;border-top:1px solid var(--app-line,var(--border));min-width:0;}
   .book-page_secondary :global(details) {max-width:100%;font-size:.875rem;}
   .book-page_secondary :global(summary) {min-height:2.75rem;display:flex;align-items:center;}

@@ -7,7 +7,7 @@ updates do not require SSH, sudo, or a GitHub credential when releases are publi
 
 The update service checks a publisher signature and signed file hashes, tests the
 candidate against disposable data, pauses writes, creates and verifies a catalogue
-backup, and switches application versions. It checks that the generated pages identify the
+backup, and switches application versions. It checks that the prebuilt interface identifies the
 expected version, so old fallback pages cannot count as a successful update. Books, copies, shelves, borrowers,
 loans, covers, web-login configuration and TLS keys remain on the Pi.
 
@@ -18,6 +18,10 @@ activation restores the previous application code without replacing the catalogu
 with an older snapshot. The fixed activation journal supports interrupted-job
 recovery. Incompatible database migrations, OS updates, gateway changes and
 signing-key rotation require separate administrator work.
+
+## First prebuilt runtime update
+
+New releases declare `runtime: static-v1` and contain prebuilt frontend files. The Pi runs Go directly and no longer needs Node to start or save books. Existing managed installations must refresh their protected updater helpers once before accepting this format; follow [the helper upgrade and verification instructions](RELEASE_README.md#existing-managed-pi-refresh-updater-helpers-once). Legacy releases remain supported for recovery. This helper upgrade is separate from ordinary application updates.
 
 ## Publishing a release
 
@@ -44,7 +48,7 @@ physical copy stays an explicit action. After a successful shelf change, focus
 returns to Scan next ISBN unless you have moved to another field or started a scan.
 
 Save measurements include database work, commit, cover retrieval, publication
-waiting, snapshot, Astro build, atomic publication and total response time. Some
+and total response time. Legacy releases also included snapshot, Astro build and atomic publication stages. Some
 stages are absent when no work is needed. Server entries use `save_timing`; browser
 console entries use `Library save timing`. Match them using the request ID and
 `Server-Timing` response header. The measurements contain no titles, ISBNs,

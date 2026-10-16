@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"home-library/internal/bookpages"
 	"home-library/internal/covers"
 	"home-library/internal/httpapi"
 	"home-library/internal/metadata"
@@ -23,7 +22,7 @@ var commit = "unknown"
 func main() {
 	addr := flag.String("listen", "127.0.0.1:8080", "loopback address")
 	data := flag.String("data", "data", "persistent data directory")
-	web := flag.String("web", "web", "Astro source directory with installed dependencies")
+	web := flag.String("web", "web/dist", "prebuilt frontend directory")
 	backupDirectory := flag.String("backup-dir", "", "optional backup parent directory for read-only health checks")
 	maintenance := flag.String("maintenance-file", "", "read-only updater maintenance marker")
 	flag.Parse()
@@ -35,6 +34,14 @@ func main() {
 	if e := httpapi.Listen(*addr); e != nil {
 		log.Fatal(e)
 	}
+	// Validate the complete frontend before opening the listener. No compiler or
+	// household-derived HTML is needed at runtime.
+	for _, required := range []string{"index.html", "book-view/index.html", "settings/index.html", "scan/index.html"} {
+		info, err := os.Stat(filepath.Join(*web, required))
+		if err != nil || !info.Mode().IsRegular() {
+			log.Fatalf("Missing prebuilt frontend %s; build the frontend or install a complete release", required)
+		}
+	}
 	if e := os.MkdirAll(*data, 0700); e != nil {
 		log.Fatal(e)
 	}
@@ -43,25 +50,8 @@ func main() {
 		log.Fatal(e)
 	}
 	defer s.DB.Close()
-	pages, e := bookpages.New(s, *web, filepath.Join(*data, "pages"))
-	if e != nil {
-		log.Fatal(e)
-	}
-	pages.Lifecycle = ctx
 	coverService := covers.New(s, filepath.Join(*data, "covers"))
-	log.Print("Generating static Astro pages from library metadata…")
-	if e = pages.Ensure(ctx); e != nil {
-		if ctx.Err() != nil {
-			return
-		}
-		for _, required := range []string{"index.html", "book-view/index.html"} {
-			if _, existing := os.Stat(filepath.Join(pages.Directory(), required)); existing != nil {
-				log.Fatal(e)
-			}
-		}
-		log.Printf("Using previous static output; regeneration needs repair: %v", e)
-	}
-	apiServer := &httpapi.Server{Lifecycle: ctx, Store: s, Metadata: metadata.NewWithCache(filepath.Join(*data, "metadata")), Web: *web, BackupDirectory: *backupDirectory, Pages: pages, Covers: coverService, Version: version, Commit: commit, MaintenancePath: *maintenance}
+	apiServer := &httpapi.Server{Lifecycle: ctx, Store: s, Metadata: metadata.NewWithCache(filepath.Join(*data, "metadata")), Web: *web, BackupDirectory: *backupDirectory, Covers: coverService, Version: version, Commit: commit, MaintenancePath: *maintenance}
 	srv := &http.Server{Addr: *addr, Handler: apiServer.Handler(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	go func() {
 		<-ctx.Done()
@@ -94,9 +84,6 @@ func main() {
 					if _, err = coverService.Fetch(c, b.ID); err != nil {
 						log.Printf("Cover lookup for book %d failed: %T", b.ID, err)
 						continue
-					}
-					if err = pages.Ensure(c); err != nil {
-						log.Printf("Publish cover for book %d: %v", b.ID, err)
 					}
 				}
 			}

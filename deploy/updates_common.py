@@ -24,6 +24,7 @@ def verify(manifest,signature,key,verifier):
  if m.get('format')!=1 or not VERSION.fullmatch(m.get('version','')) or m.get('arch')!='linux-arm64' or m.get('schema')!=1 or m.get('rollback_compatible') is not True:raise ValueError('Incompatible release')
  if not re.fullmatch('[0-9a-f]{40}',m.get('commit','')) or not re.fullmatch('[0-9a-f]{64}',m.get('bundle_sha256','')):raise ValueError('Invalid release identity')
  if not isinstance(m.get('files'),list) or len(m['files'])>50000:raise ValueError('Invalid file list')
+ if 'runtime' in m and m['runtime']!='static-v1':raise ValueError('Unsupported release runtime')
  names=set();links=set();size=0
  for f in m['files']:
   n=f['path']
@@ -40,7 +41,12 @@ def verify(manifest,signature,key,verifier):
   else:raise ValueError('Unsupported file type')
  if any(str(parent) in links for n in names for parent in pathlib.PurePosixPath(n).parents):raise ValueError('Path traverses symbolic link')
  if size!=m.get('unpacked_size') or size>2<<30:raise ValueError('Invalid expanded size')
- for required in ['bin/library','bin/library-backup','web/package.json','web/node_modules/astro/bin/astro.mjs','runtime/bin/node']:
+ required_files=['bin/library','bin/library-backup']
+ if m.get('runtime')=='static-v1':
+  required_files+=['web/index.html','web/book-view/index.html','web/settings/index.html','web/scan/index.html']
+  if any(n.startswith(('runtime/','web/node_modules/','web/src/')) for n in names):raise ValueError('Static runtime contains development dependencies')
+ else:required_files+=['web/package.json','web/node_modules/astro/bin/astro.mjs','runtime/bin/node']
+ for required in required_files:
   if required not in names:raise ValueError('Incomplete runtime')
  return m
 

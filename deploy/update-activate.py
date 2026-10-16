@@ -77,30 +77,32 @@ def activate():
    if candidate.exists():check_existing(candidate,manifest)
    else:
     extract(secure/'bundle.tar.gz',manifest,candidate);created=True
-    atomic_json(candidate/'RELEASE.json',{'version':version,'commit':manifest['commit']})
+    atomic_json(candidate/'RELEASE.json',{'version':version,'commit':manifest['commit'],'runtime':manifest.get('runtime','legacy')})
   # Cache links are created by this fixed helper, never accepted from the archive.
   cache=pathlib.Path('/var/cache/home-library')/version
   cache.mkdir(mode=0o755,exist_ok=True)
-  for name in ['types','vite','astro-cache']:
-   target=cache/name
-   if target.is_symlink():raise ValueError('Invalid cache directory')
-   target.mkdir(mode=0o700,exist_ok=True);target.chmod(0o700);shutil.chown(target,user='home-library',group='home-library')
-  types=DATA/'build-cache'/version/'types'
-  as_app('/usr/bin/mkdir','-p','-m','700',types)
-  as_app('/usr/bin/ln','-sfnT',candidate/'web/node_modules',types/'node_modules')
-  for target,link in [(types,candidate/'web/.astro'),(cache/'vite',candidate/'web/node_modules/.vite')]:
-   if link.is_symlink():
-    if os.readlink(link)!=str(target):raise ValueError('Invalid cache link')
-   elif link.exists():raise ValueError('Cache path is not a managed link')
-   else:link.symlink_to(target)
+  if manifest.get('runtime')!='static-v1':
+   for name in ['types','vite','astro-cache']:
+    target=cache/name
+    if target.is_symlink():raise ValueError('Invalid cache directory')
+    target.mkdir(mode=0o700,exist_ok=True);target.chmod(0o700);shutil.chown(target,user='home-library',group='home-library')
+   types=DATA/'build-cache'/version/'types'
+   as_app('/usr/bin/mkdir','-p','-m','700',types)
+   as_app('/usr/bin/ln','-sfnT',candidate/'web/node_modules',types/'node_modules')
+   for target,link in [(types,candidate/'web/.astro'),(cache/'vite',candidate/'web/node_modules/.vite')]:
+    if link.is_symlink():
+     if os.readlink(link)!=str(target):raise ValueError('Invalid cache link')
+    elif link.exists():raise ValueError('Cache path is not a managed link')
+    else:link.symlink_to(target)
   smoke=cache/'smoke';smoke.mkdir(mode=0o700);shutil.chown(smoke,user='library-smoke',group='home-library')
   # Use protected hard-linked source with independent, private test caches.
   # The smoke account cannot traverse the live catalogue or its cache contents.
   shutil.copytree(candidate/'web',smoke/'web',symlinks=True,copy_function=os.link)
   test_cache=smoke/'cache';test_cache.mkdir(mode=0o700);shutil.chown(test_cache,user='library-smoke',group='library-smoke')
-  for name,link in [('types',smoke/'web/.astro'),('vite',smoke/'web/node_modules/.vite')]:
-   link.unlink();target=test_cache/name;target.mkdir(mode=0o700);shutil.chown(target,user='library-smoke',group='library-smoke');link.symlink_to(target)
-  subprocess.run(['/usr/sbin/runuser','-u','library-smoke','--','/usr/bin/ln','-sfnT',str(smoke/'web/node_modules'),str(test_cache/'types/node_modules')],check=True)
+  if manifest.get('runtime')!='static-v1':
+   for name,link in [('types',smoke/'web/.astro'),('vite',smoke/'web/node_modules/.vite')]:
+    link.unlink();target=test_cache/name;target.mkdir(mode=0o700);shutil.chown(target,user='library-smoke',group='library-smoke');link.symlink_to(target)
+   subprocess.run(['/usr/sbin/runuser','-u','library-smoke','--','/usr/bin/ln','-sfnT',str(smoke/'web/node_modules'),str(test_cache/'types/node_modules')],check=True)
   env={**os.environ,'PATH':str(candidate/'runtime/bin')+':/usr/bin:/bin','HOME':str(smoke),'LIBRARY_CACHE_DIR':str(test_cache),'NODE_OPTIONS':'--max-old-space-size=384'}
   process=subprocess.Popen(['/usr/sbin/runuser','-u','library-smoke','--',str(candidate/'bin/library'),'-listen','127.0.0.1:18081','-data',str(smoke/'data'),'-web',str(smoke/'web')],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
   try:

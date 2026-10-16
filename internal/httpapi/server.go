@@ -394,12 +394,12 @@ func (s *Server) Handler() http.Handler {
 			http.Error(w, "Book not found", 404)
 			return
 		}
-		if s.Pages == nil {
-			http.Error(w, "Book page generation is not configured", 503)
-			return
+		web := s.Web
+		if s.Pages != nil {
+			web = s.Pages.Directory()
 		}
 		w.Header().Set("Cache-Control", "no-store")
-		http.ServeFile(w, r, filepath.Join(s.Pages.Directory(), "book-view", "index.html"))
+		http.ServeFile(w, r, filepath.Join(web, "book-view", "index.html"))
 	})
 	m.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		web := s.Web

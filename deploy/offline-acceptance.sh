@@ -13,8 +13,8 @@ server_binary, backup_binary = root / "bin/library", root / "bin/library-backup"
 for binary in (server_binary, backup_binary):
     if not binary.is_file() or not os.access(binary, os.X_OK):
         sys.exit(f"Missing built executable: {binary}; build locally first")
-if not (root / "web/node_modules/astro/bin/astro.mjs").is_file():
-    sys.exit("Installed Astro dependencies required; no dependencies are installed by this check")
+if not (root / "web/dist/book-view/index.html").is_file():
+    sys.exit("Prebuilt frontend required; build web/dist first")
 
 # Production clients use Go DefaultTransport.ProxyFromEnvironment. This owned
 # loopback proxy denies every request and never connects to an upstream server.
@@ -37,7 +37,7 @@ for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_prox
     environment[name] = proxy_url
 for name in ("NO_PROXY", "no_proxy"):
     environment[name] = "127.0.0.1,localhost"
-environment["ASTRO_TELEMETRY_DISABLED"] = "1"
+environment["PATH"] = "/nonexistent"  # Prove no runtime compiler/Node dependency.
 environment.pop("LIBRARY_BOOK_SNAPSHOT", None)
 client = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 owned = None
@@ -100,11 +100,7 @@ try:
         directory = cleanup.enter_context(tempfile.TemporaryDirectory(prefix="library-offline-acceptance-"))
         cleanup.callback(stop)
         stage = pathlib.Path(directory); data = stage / "fresh-data"; web = stage / "web"
-        web.mkdir()
-        for name in ("package.json", "package-lock.json", "astro.config.mjs", "tsconfig.json"):
-            shutil.copyfile(root / "web" / name, web / name)
-        shutil.copytree(root / "web/src", web / "src")
-        (web / "node_modules").symlink_to(root / "web/node_modules", target_is_directory=True)
+        shutil.copytree(root / "web/dist", web)
         start(data, web, stage, "initial-server")
         began = time.monotonic(); unknown = request("/api/isbn/9780140328721")
         assert unknown.get("warning") and not unknown["draft"]["title"] and not unknown.get("existing"), "Offline lookup did not offer manual fallback"

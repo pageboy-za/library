@@ -36,4 +36,4 @@ CGO_ENABLED=0 go build -trimpath -o bin/library-mcp ./cmd/library-mcp
   npm --version
   sha256sum go.mod go.sum web/package-lock.json bin/library bin/library-backup bin/library-mcp
 } > bin/build-info.txt
-printf '%s\n' 'Built. Start ./bin/library from this directory, or follow PI_README.md to install the service.'
+printf '%s\n' 'Built. Start ./bin/library -web web/dist from this directory. Node is not needed at runtime. See PI_README.md for installation.'

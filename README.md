@@ -1,6 +1,6 @@
 # Home Library
 
-A local Go + SQLite backend with static Astro pages, Lumos styling and Svelte islands.
+A local Go + SQLite application with a prebuilt Astro/Svelte interface. Raspberry Pi OS 64-bit remains the deployment target.
 
 ## Run the first slice
 
@@ -15,7 +15,7 @@ go build -o bin/library ./cmd/library
 ./bin/library
 ```
 
-Open http://127.0.0.1:8080. The executable serves generated Astro pages and invokes Node/Astro when metadata changes. Run from the repository root or pass `-web` and `-data` with absolute paths. Stop with Ctrl+C.
+Open http://127.0.0.1:8080. The executable serves the prebuilt interface and current catalogue data. Node is used only to build the frontend; adding or editing a book does not rebuild pages. Run from the repository root (`-web` defaults to `web/dist`) or pass `-web` and `-data` with absolute paths. Stop with Ctrl+C.
 
 Build outputs and household data are excluded from the repository. Install Go normally before building.
 
@@ -32,20 +32,18 @@ Books without ISBNs can be entered manually. Do not concatenate the price supple
 
 ## Architecture
 
-- `cmd/library`: local Go server startup/shutdown and static regeneration.
+- `cmd/library`: local Go server startup/shutdown.
 - `internal/httpapi`: same-origin API and static serving.
 - `internal/store`: SQLite catalogue, inventory and discovery metadata.
-- `internal/bookpages`: metadata snapshot, serialized Astro build, atomic publication.
 - `internal/covers`: locally cached cover downloads, selection and validated uploads.
 - `internal/catalogue`: shared explained discovery service.
 - `internal/mcpserver` and `cmd/library-mcp`: read-only local stdio MCP tools.
 - `web/src/pages/book-view.astro`: reusable live book shell; `LiveBook.svelte` reads the current saved record.
-- `web/src/pages/books/[id].astro`: derived static metadata snapshots retained for generated output.
 - `web/src/components/library`: live Svelte search, inventory, lending, cover picker and editor controls.
 
-Go serves the site and database API; Node/Astro now run on the device only to regenerate pages. Start `./bin/library` from the repository root with `web/node_modules` installed. `-web` points to Astro source (default `web`), not `web/dist`. Startup generates existing book pages; add/edit/cover changes regenerate automatically. A build uses a SQLite metadata snapshot and publishes only complete output. Pages live under `data/pages/current`, with the current generation, two predecessors and a one-hour grace period retained for in-flight reads. Fingerprinted island assets are kept in a shared derived cache so older pages can still hydrate after code updates. They are derived data and can be rebuilt. Book saves return after the database commits. Cover lookup and static generation run in a coalescing background worker, tracked as active writes for updater safety. Startup reconstructs interrupted derived work; a later save also retries failed generation. Book and kiosk views use reusable Astro shells with Svelte reading current records from the local API, so opening a newly saved or edited book never waits for a build. Build failure preserves the committed record and the previous complete shell.
+Go serves the compiled HTML/assets and the database API. The frontend is built once before installation. Book and kiosk views load current records through Svelte; `/books/1/` uses the reusable book shell, so a new or edited book appears without a build or restart. Legacy `/book/?id=1` links still redirect. The initial HTML is a shell; book metadata arrives from the local API after JavaScript starts.
 
-Shelf/copy/loan changes are fetched by Svelte and require no build. Inspect View Source at `/books/1/`: the title/authors/publisher/date/cover are already HTML; inventory controls hydrate and fetch current status. Existing `/book/?id=1` links redirect.
+Only the binaries and compiled frontend are required at runtime. Release bundles put compiled files under `web/` and start with `-web /absolute/path/to/app/web`; source checkouts build to `web/dist/`. Node, npm, Go, frontend source and `node_modules` are not runtime requirements. Cached covers and thumbnails remain writable derived data under the data directory. Old `data/pages` generations are no longer needed by the server; leave them in place during a migration until backup and rollback needs have been assessed.
 
 Catalogue filtering and pagination run in SQLite; only up to 24 records are loaded per page. An SQLite FTS5 trigram index narrows title/author/ISBN searches of three or more characters. Literal Unicode-normalized substring verification preserves exact search behavior; short and unsupported queries use the same SQL scan fallback.
 
@@ -79,7 +77,7 @@ Take a verified consistent backup before deploying schema changes; never copy on
 
 ## Current scope and limitations
 
-This is a development preview, not the Pi release. Real cover assets are cached locally; exact-edition alternatives and own-image uploads are available. Some editions lack artwork; upload a cover when lookup cannot find one. JPEG/PNG/WebP uploads are validated up to 8 MiB and 16 million pixels, corrected for camera orientation, stripped of metadata and reduced to a maximum dimension of 1600 pixels. Preview the upload before saving. Local 320-pixel thumbnails are implemented. The contribution panel reviews the exact edition and prepares a sanitized download for manual upload on Open Library. Upstream API contributions are not automatic.
+The simplified runtime is under development; deployment of this change to the existing Pi still needs validation. Real cover assets are cached locally; exact-edition alternatives and own-image uploads are available. Some editions lack artwork; upload a cover when lookup cannot find one. JPEG/PNG/WebP uploads are validated up to 8 MiB and 16 million pixels, corrected for camera orientation, stripped of metadata and reduced to a maximum dimension of 1600 pixels. Preview the upload before saving. Local 320-pixel thumbnails are implemented. The contribution panel reviews the exact edition and prepares a sanitized download for manual upload on Open Library. Upstream API contributions are not automatic.
 
 Borrowers, per-copy checkout/return and history are implemented. Descriptions/subjects and personal tags/notes support explained theme discovery; optional Open Library enrichment fills empty fields while preserving local edits. Catalogue filtering/pagination and indexed search run in SQLite. Authors remain an ordered list on each edition. Shelf renaming/deletion use revision checks and block removal while copies refer to the shelf. Copy archival is explicit, blocks active loans and preserves history. Publication precision remains source text.
 
@@ -87,7 +85,7 @@ Network exposure: the listener is loopback-only with Host/Origin checks. Open Li
 
 Lumos source: v0.0.5, commit d8591421cb2c6596fd80c9814cc31eb02e1f95ff. Source files were copied into web and retain the MIT license in web/LUMOS_LICENSE. Local theme/control adaptations use Lumos tokens and the four CSS layers.
 
-The frontend is generated into data/pages rather than embedded. Source packaging and Go ARM64 cross-build checks pass; the Pi needs Go binaries, Astro source and installed frontend dependencies. Actual-device installation and runtime checks remain outstanding. Do not claim hardware support based on this macOS preview.
+The frontend is distributed as compiled files alongside the Go binaries. Build and automated checks do not substitute for actual-device validation of this runtime change.
 
 See [the plan](LIBRARY_PLAN.md) and [release acceptance checks](RELEASE_ACCEPTANCE.md).
 
@@ -103,11 +101,11 @@ Startup validates the supported core schema, keys and required constraints befor
 
 Manual entry preserves its draft when returning to the scanner and suggests local title matches without blocking save. A committed save opens the live book view immediately, even while static generation is slow or has failed; request-key and ISBN replay protection prevent duplicate copies. Reviewed source metadata persists on edits; changing an ISBN clears stale provider provenance. Physical-keyboard and scanner checks remain outstanding.
 
-Source release packaging and its checks are documented in [RELEASE_README.md](RELEASE_README.md). The package excludes household data and installed dependencies; install frontend dependencies on the target Pi and transfer library data separately through verified backup/restore.
+Source release packaging and its checks are documented in [RELEASE_README.md](RELEASE_README.md). Runtime packages exclude household data and development dependencies; transfer library data separately through verified backup/restore.
 
 Use [RELEASE_ACCEPTANCE.md](RELEASE_ACCEPTANCE.md) for the scanner, display and Pi checklist. The disposable [offline acceptance runner](OFFLINE_ACCEPTANCE.md) checks local operation and backup recovery without using household data.
 
-The Settings page checks saved backup folders when an optional `-backup-dir /absolute/durable/backups` is configured at startup. It reports verification and48hour freshness without scheduling or writing backups. See [BACKUP_README.md](BACKUP_README.md) for limits and setup. After changing application/ frontend source, restart the service to regenerate static pages; in-process regeneration is driven by metadata changes.
+The Settings page checks saved backup folders when an optional `-backup-dir /absolute/durable/backups` is configured at startup. It reports verification and 48-hour freshness without scheduling or writing backups. See [BACKUP_README.md](BACKUP_README.md) for limits and setup. After changing frontend source, rebuild it and restart the service with the new compiled files. Catalogue changes require neither step.
 
 ### Delete and restore a book
 

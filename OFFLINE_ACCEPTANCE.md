@@ -4,7 +4,7 @@
 
 ## Run
 
-Build the current Go binaries and install the locked frontend dependencies beforehand. The runner requires Python 3, Node, `bin/library`, `bin/library-backup`, and the existing `web/node_modules/` Astro installation:
+Build the current Go binaries and frontend beforehand. The runner requires Python 3, `bin/library`, `bin/library-backup`, and prebuilt `web/dist/`. Node and installed frontend dependencies are not needed by the runner:
 
 ```sh
 ./deploy/offline-acceptance.sh
@@ -12,7 +12,7 @@ Build the current Go binaries and install the locked frontend dependencies befor
 
 It starts its own server on a temporary `127.0.0.1` port. Another owned loopback listener acts as a deny proxy: every CONNECT/GET/POST receives HTTP 503 and is never forwarded. Only child-process proxy settings change. The API client bypasses proxies for local requests. The check requires evidence that an Open Library request reached the deny proxy, preventing a successful online response from being mistaken for offline fallback.
 
-Current metadata, enrichment and cover clients use Go's default HTTP transport, whose `ProxyFromEnvironment` honors these settings. Astro telemetry is disabled and frontend assets/fonts are local. This simulates provider failure; it is not operating-system network isolation or a physical Wi-Fi-disconnection test.
+Current metadata, enrichment and cover clients use Go's default HTTP transport, whose `ProxyFromEnvironment` honors these settings. Frontend assets/fonts are local and the application executable search path is empty. This simulates provider failure; it is not operating-system network isolation or a physical Wi-Fi-disconnection test.
 
 ## What it checks
 
@@ -25,13 +25,13 @@ Current metadata, enrichment and cover clients use Go's default HTTP transport, 
 - The saved description is available through the local API; private notes never appear in the reusable HTML shell.
 - Author search finds the saved book.
 - The backup utility creates and verifies a consistent backup while the fixture server runs, restores to a separate clean folder, and starts a new offline instance.
-- Restored copies, an outstanding loan, private notes, static pages and cover bytes remain intact. Returning the loan restores availability.
+- Restored copies, an outstanding loan, private notes, prebuilt interface and cover bytes remain intact. Returning the loan restores availability.
 
-The web source is copied into the disposable workspace; its dependency directory links to the existing installation. The script generates no pages in household data. Request, startup and backup commands have time limits; shutdown targets only its own subprocess. Cleanup stops that process before removing temporary files. A listener-permission failure is a failed check and should be reported, not worked around by using the household server.
+The prebuilt web/dist interface is copied into the disposable workspace. The child application runs with an empty executable search path, without Node or build tools. The script generates no book pages. Request, startup and backup commands have time limits; shutdown targets only its own subprocess. Cleanup stops that process before removing temporary files. A listener-permission failure is a failed check and should be reported, not worked around by using the household server.
 
 ## Limits
 
-This validates API behavior, generated HTML and recovery using the actual built executables. It does not drive a browser, prove Svelte hydration/click behavior, test scanner focus or timing, or establish Pi performance, systemd startup, touchscreen operation or durable backup-disk behavior. Browser and physical Raspberry Pi acceptance remain separate. It tests the existing binaries; rebuild after source changes before relying on its result.
+This validates API behavior, prebuilt HTML and recovery using the actual built executables. It does not drive a browser, prove Svelte hydration/click behavior, test scanner focus or timing, or establish Pi performance, systemd startup, touchscreen operation or durable backup-disk behavior. Browser and physical Raspberry Pi acceptance remain separate. It tests the existing binaries; rebuild after source changes before relying on its result.
 
 Recorded development result: **PASS on 10 October 2026**, using the Mac's built binaries and installed Astro dependencies. The deny-proxy observation, all fixture assertions, backup verification, restored offline startup and local cover checksum passed. Temporary processes and folders were cleaned up; no household database was opened. This is development acceptance, not a Pi hardware sign-off.
 

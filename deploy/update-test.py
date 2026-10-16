@@ -26,6 +26,22 @@ with tempfile.TemporaryDirectory(prefix='library-release-security-') as director
  base=dict(format=1,version='v9.9.9',commit='a'*40,arch='linux-arm64',schema=1,rollback_compatible=True,unpacked_size=sum(map(len,bodies.values())),files=[dict(path=n,type='file',sha256=hashlib.sha256(b).hexdigest(),size=len(b),mode=0o755) for n,b in bodies.items()])
  write_bundle();sign(copy.deepcopy(base));valid=verify(manifest,signature,public,verifier);extract(bundle,valid,root/'valid')
  assert (root/'valid/bin/library').read_bytes()==b'fixture'
+ # Prebuilt releases require all application entry points and no Node dependencies.
+ legacy_bodies=bodies.copy()
+ bodies={n:b'fixture' for n in ['bin/library','bin/library-backup','web/index.html','web/book-view/index.html','web/settings/index.html','web/scan/index.html']}
+ static={**base,'runtime':'static-v1','unpacked_size':sum(map(len,bodies.values())),'files':[dict(path=n,type='file',sha256=hashlib.sha256(b).hexdigest(),size=len(b),mode=0o644) for n,b in bodies.items()]}
+ write_bundle();sign(copy.deepcopy(static));valid_static=verify(manifest,signature,public,verifier);extract(bundle,valid_static,root/'static')
+ assert (root/'static/web/book-view/index.html').read_bytes()==b'fixture'
+ # Exercise the publisher too: its output must satisfy the installed verifier.
+ published=root/'published'
+ subprocess.run([sys.executable,str(pathlib.Path(__file__).with_name('build-release.py')),'--root',str(root/'static'),'--out',str(published),'--version','v9.9.9','--commit','a'*40],check=True)
+ subprocess.run([verifier,'-action','sign','-key',str(private),'-manifest',str(published/'manifest.json'),'-signature',str(published/'manifest.sig')],check=True)
+ packaged=verify(published/'manifest.json',published/'manifest.sig',public,verifier)
+ assert packaged['runtime']=='static-v1'
+ extract(published/'bundle.tar.gz',packaged,root/'published-extracted')
+ for change in [lambda m:m.update(runtime='unknown'),lambda m:m.update(runtime=None),lambda m:m['files'].pop(),lambda m:m['files'].append(dict(path='runtime/bin/node',type='file',sha256='0'*64,size=0,mode=0o755))]:
+  m=copy.deepcopy(static);change(m);sign(m);rejected(lambda:verify(manifest,signature,public,verifier))
+ bodies=legacy_bodies;write_bundle();sign(copy.deepcopy(base))
  # Altered publisher bytes must fail even when the tar is otherwise valid.
  manifest.write_bytes(manifest.read_bytes()+b' ');rejected(lambda:verify(manifest,signature,public,verifier))
  for change in [lambda m:m.update(arch='linux-amd64'),lambda m:m.update(schema=2),lambda m:m.update(rollback_compatible=False),lambda m:m['files'].append(dict(path='../../escape',type='file',size=0,sha256='0'*64,mode=0o644)),lambda m:m['files'].append(dict(path='web/escape',type='symlink',target='../../etc/passwd'))]:

@@ -6,7 +6,9 @@ import DiscoveryEditor from './DiscoveryEditor.svelte';
 import BookWorkspace from './BookWorkspace.svelte';
 import QuickScan from './QuickScan.svelte';
 import BookFacts from './BookFacts.svelte';
+import {openLibraryUrl} from '../../lib/openLibrary';
 let book:Book|null=null;let error='';let description='';let subjects:string[]=[];let editing=false;let stopped=false;
+$: openLibraryHref=book ? openLibraryUrl(book) : '';
 let coverTimer:ReturnType<typeof setTimeout>;let attempts=0;
 async function load(){
  error='';
@@ -39,7 +41,7 @@ onDestroy(()=>{stopped=true;clearTimeout(coverTimer);});
       {#if book.subtitle}<p class="book-page_subtitle">{book.subtitle}</p>{/if}
       <p class="book-page_authors">{book.authors.join(', ')||'Author not recorded'}</p>
       <BookFacts {book}/>
-      <div class="book-page_actions"><button type="button" onclick={()=>window.dispatchEvent(new CustomEvent('library-edit-book-details',{detail:book!.id}))} aria-expanded={editing}>{editing?'Close editor':'Edit details'}</button></div>
+      <div class="book-page_actions"><button type="button" onclick={()=>window.dispatchEvent(new CustomEvent('library-edit-book-details',{detail:book!.id}))} aria-expanded={editing}>{editing?'Close editor':'Edit details'}</button>{#if openLibraryHref}<a href={openLibraryHref} target="_blank" rel="noreferrer">View on Open Library ↗</a>{/if}</div>
     </header>
     <BookWorkspace bookId={book.id}/>
     </div>
@@ -67,7 +69,7 @@ onDestroy(()=>{stopped=true;clearTimeout(coverTimer);});
   .book-page_metadata {display:grid;gap:.5rem;min-width:0;}
   .book-page h1 {font-family:var(--app-serif,Georgia,serif);font-weight:400;font-size:clamp(2rem,3.4vw,2.75rem);line-height:1.08;letter-spacing:-.025em;max-width:36ch;overflow-wrap:anywhere;}
   .book-page_authors {font-size:1.0625rem;color:var(--app-muted,var(--text-2));}
-  .book-page_actions {display:flex;gap:1.25rem;button{min-height:2.75rem;padding:.5rem 0;background:transparent;border:0;font-size:.875rem;color:var(--app-muted,var(--text-2));text-decoration:underline;text-underline-offset:.2em;}}
+  .book-page_actions {display:flex;flex-wrap:wrap;gap:.25rem 1.25rem;button,a{display:inline-flex;align-items:center;min-height:2.75rem;padding:.5rem 0;background:transparent;border:0;font-size:.875rem;color:var(--app-muted,var(--text-2));text-decoration:underline;text-underline-offset:.2em;}}
   .book-page_secondary {display:grid;gap:1rem;padding-top:1.25rem;border-top:1px solid var(--app-line,var(--border));min-width:0;}
   .book-page_secondary :global(details) {max-width:100%;font-size:.875rem;}
   .book-page_secondary :global(summary) {min-height:2.75rem;display:flex;align-items:center;}
