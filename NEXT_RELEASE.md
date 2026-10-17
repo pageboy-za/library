@@ -1,3 +1,14 @@
+# v0.11.2 — tap Lend, then scan in the staff kiosk
+
+Requested by Nealle on 17 October 2026.
+
+- The staff kiosk now starts with Lend. Selecting it opens and focuses the pass scanner; scanning an approved card completes the loan without a second confirmation button.
+- Cancel returns to Lend. Changing the book or copy clears scan intent, and an in-progress lookup or unconfirmed loan prevents unsafe navigation. Request keys survive retries after an uncertain response.
+- The staff book-management scanner retains its separate lookup and confirmation flow.
+- Validation: frontend check/build and sample-data browser checks at 320, 390, 700 and 1280 pixels passed, including scanner focus, cancellation, invalid scans and automatic lending. Connection-loss retry checks and the signed release workflow validate the release before installation.
+
+## Previous release record
+
 # v0.11.1 — consistent loan ribbons and pass-first staff lending
 
 Release and deployment requested by Nealle on 17 October 2026.

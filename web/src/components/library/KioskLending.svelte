@@ -1,6 +1,6 @@
 <script lang="ts">
 import {authenticatedFetch} from '../../lib/auth';
-import {onMount} from 'svelte';
+import {onMount,tick} from 'svelte';
 import {api, type Book, type Copy} from '../../lib/api';
 import BookFacts from './BookFacts.svelte';
 import MemberCardScanner from './MemberCardScanner.svelte';
@@ -28,6 +28,8 @@ let selectedCopyId:number|null=null;
 let borrowerName='';
 let selectedBorrowerId:number|null=null;
 let cardBusy=false;let scannedCard='';
+let scanToLend=false;
+let lendButton:HTMLButtonElement;
 let loading=true;
 let refreshing=false;
 let busy=false;
@@ -52,7 +54,19 @@ $: canLend=!!query&&(selectedBorrowerId!==null||exactMatches.length<2);
 
 function loanStart(value:string) { const date=new Date(value); if(Number.isNaN(date.valueOf()))return ''; return date.toDateString()===new Date().toDateString()?'Borrowed today':`Since ${date.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}`; }
 
-function resetForm() { scannedCard='';borrowerName=''; selectedBorrowerId=null; }
+function resetForm() { scanToLend=false;scannedCard='';borrowerName=''; selectedBorrowerId=null; }
+function startLending(){if(locked||loadError)return;resetForm();error='';message='';scanToLend=true;}
+async function cancelLending(){if(locked)return;resetForm();error='';await tick();lendButton?.focus();}
+async function scannedMember(member:{borrowerId:number;name:string;code:string}|null){
+ selectedBorrowerId=member?.borrowerId??null;borrowerName=member?.name??'';scannedCard=member?.code??'';error='';message='';
+ if(!member||variant!=='kiosk'||!scanToLend)return;
+ const target=bookId;const targetCopy=selectedCopyId;
+ // The scanner finishes its lookup and releases its busy state before saving.
+ await tick();
+ await load();
+ await tick();
+ if(mounted&&scanToLend&&bookId===target&&selectedCopyId===targetCopy&&scannedCard===member.code)lend();
+}
 function copyName(value:Copy) { return value.label||`Copy ${value.id}`; }
 function shelfName(value:string) {
   const parts=value.split(' / ');
@@ -135,7 +149,7 @@ function select(event:Event) {
 }
 
 function guardNavigation(event:Event) {
-  if(!busy&&!pending)return;
+  if(!busy&&!cardBusy&&!pending){if(scanToLend)resetForm();return;}
   event.preventDefault();
   navigationNotice='Keep this book open until the lending update is confirmed.';
 }
@@ -314,13 +328,21 @@ function returnBook() {
           <p class="quiet">This copy is on loan. Refresh to load its return details.</p>
           <button type="button" class="text-action" disabled={busy||refreshing} onclick={()=>load()}>Refresh status</button>
         {:else}
+          {#if variant==='kiosk'}
+            {#if scanToLend&&!pending}
+              <h2 class="scan-heading">Scan member pass</h2>
+              {#key bookId}
+              <MemberCardScanner disabled={locked||!!loadError} focusOnMount completesLoan busyChanged={(value)=>cardBusy=value} selected={scannedMember}/>
+              {/key}
+              <button type="button" class="text-action" disabled={locked} onclick={cancelLending}>Cancel</button>
+            {:else if !pending}
+              <button type="button" class="primary" bind:this={lendButton} disabled={locked||!!loadError} onclick={startLending}>Lend</button>
+            {/if}
+          {:else}
           {#key bookId}
-          <MemberCardScanner disabled={locked||!!loadError} busyChanged={(value)=>cardBusy=value} selected={(member)=>{selectedBorrowerId=member?.borrowerId??null;borrowerName=member?.name??'';scannedCard=member?.code??'';error='';message='';}}/>
+          <MemberCardScanner disabled={locked||!!loadError} busyChanged={(value)=>cardBusy=value} selected={scannedMember}/>
           {/key}
           {#if scannedCard}<p role="status">Member verified: <strong>{borrowerName}</strong></p>{/if}
-          {#if variant==='kiosk'}
-            <button type="button" class="primary" disabled={locked||!!loadError||!scannedCard} onclick={()=>lend()}>Lend book</button>
-          {:else}
           <form onsubmit={lend}>
             <div class="lend-row">
               <label class="field">Lend to
@@ -355,6 +377,7 @@ function returnBook() {
 <style>
 .kiosk-lending{color:var(--kiosk-ink,#26382d);display:grid;gap:1rem;min-width:0;font-size:1rem;line-height:1.45;}
 .kiosk-lending p,.kiosk-lending ul{margin:0;}
+.scan-heading{font-size:1.3rem;margin:0;}
 .copy-status,.circulation-actions{display:grid;gap:1rem;min-width:0;}
 .lend-row,.return-row,.return-details{display:grid;gap:.75rem;min-width:0;}
 .availability{display:grid;gap:.25rem;}
