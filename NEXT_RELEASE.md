@@ -7,6 +7,12 @@ Release and deployment requested by Nealle on 17 October 2026.
 - Validation: frontend check/build passed; browser checks at 320, 390, 700 and 1280 pixels verified ribbons, screen fit, missing-cover handling, removal of borrower shortcuts and successful pass lending against disposable fixtures. Shared ribbon markup avoids separate styles drifting between views.
 - No schema or data migration; signed updater verification and a verified catalogue backup precede activation.
 
+## Pi deployment verified — 17 October 2026
+
+- Signed v0.11.1 installed through Settings; live application commit `903fa77bbd4811799f296297f87def61c2ac00b1`. Updater reports ready; health check passed.
+- Candidate startup and catalogue backup verification passed. The member catalogue, availability and original cover bytes matched the private pre-update baseline exactly.
+- Live browser checks confirmed the member cover ribbon and the staff kiosk's pass scanner/Lend book controls, without preloaded borrower buttons. No real loan was created during verification.
+
 ## Previous release record
 
 # v0.11.0 — self-service pass lending
