@@ -8,6 +8,13 @@ Release and Raspberry Pi deployment requested by Nealle on 17 October 2026.
 - The separate shared browser login is removed from the trusted-network gateway through a reviewed administrator helper. HTTPS, origin checks, individual staff accounts and administrator-only update access remain in place.
 - Validation: standard Go suite, focused race checks, frontend checks/build and phone/desktop lending checks passed. A lost-response browser test confirmed exactly one loan. The full race suite hits the existing one-second save timing test. Packaging, gateway and signed release workflow checks run before publication.
 
+## Pi deployment verified — 17 October 2026
+
+- Signed v0.11.0 installed through the managed updater; application commit `4afa41e3271fc3d87d78fed593a16bbec3bb9fe8`. Live health and installed-version checks passed.
+- The shared browser login was removed. Credential-free HTTPS browsing succeeds; borrower data and updater access still require individual staff sign-in.
+- Verified private backups were created, with an independently verified copy off the Pi. The private comparison matched catalogue, inventory, memberships, lending, preferences, staff accounts and original covers exactly.
+- Live browser verification confirmed Lend opens the pass-scanning flow. The check was cancelled without creating a household loan. Physical scanner and actual iPhone acceptance remain device checks.
+
 ## Previous release record
 
 # v0.7.0 — approved mobile and search release
