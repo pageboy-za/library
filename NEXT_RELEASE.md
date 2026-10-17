@@ -1,3 +1,14 @@
+# v0.11.1 — consistent loan ribbons and pass-first staff lending
+
+Release and deployment requested by Nealle on 17 October 2026.
+
+- The member catalogue now shares the staff view's diagonal On loan cover ribbon and subdued cover treatment. Available books, editions with some copies available, and editions with no copies do not show the ribbon. Existing availability text remains visible.
+- The staff kiosk no longer offers preloaded borrower-name buttons or Someone else. It shows the pass scanner and a Lend book button enabled after a valid member pass is selected. Staff book-management forms retain manual lending support.
+- Validation: frontend check/build passed; browser checks at 320, 390, 700 and 1280 pixels verified ribbons, screen fit, missing-cover handling, removal of borrower shortcuts and successful pass lending against disposable fixtures. Shared ribbon markup avoids separate styles drifting between views.
+- No schema or data migration; signed updater verification and a verified catalogue backup precede activation.
+
+## Previous release record
+
 # v0.11.0 — self-service pass lending
 
 Release and Raspberry Pi deployment requested by Nealle on 17 October 2026.
